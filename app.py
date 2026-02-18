@@ -7,7 +7,6 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(
     page_title="レシピ提案AI",
-    page_icon="🍳",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -22,7 +21,7 @@ if 'recipe_result' not in st.session_state:
 if 'saved_recipes' not in st.session_state:
      st.session_state.saved_recipes = []
 
-# --- CSS設定（下部ナビゲーションを横並びに固定） ---
+# --- CSS設定（絵文字排除・フッター横並び強制） ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
@@ -32,74 +31,70 @@ st.markdown("""
         background-color: #FFFFFF !important;
     }
 
-    /* メメインコンテンツエリアの余白（フッターとヘッダー用） */
     .main .block-container {
         padding-bottom: 120px !important;
         padding-top: 20px !important;
     }
 
-    /* 【重要】下部ナビゲーションバーの固定と横並び強制 */
+    /* フッターナビゲーションの強制横並び */
     div[data-testid="stVerticalBlock"] > div:last-child {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: #FFFFFF;
-        border-top: 1px solid #EEEEEE;
-        z-index: 9999;
-        padding: 5px 0 15px 0; /* 下に少し余裕を持たせる（iPhoneのホームバー対策） */
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        background-color: #FFFFFF !important;
+        border-top: 1px solid #DDDDDD !important;
+        padding: 10px 0 20px 0 !important;
+        z-index: 10000 !important;
     }
-    
-    /* StreamlitのColumnsが縦に並ぶのを阻止して横に固定 */
-    div[data-testid="stVerticalBlock"] > div:last-child [data-testid="stHorizontalBlock"] {
+
+    /* モバイルでの縦並びを徹底的に上書き */
+    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        justify-content: space-around !important;
-        align-items: center !important;
+        gap: 0 !important;
     }
     
-    /* ボタンを中央に寄せ、枠を消す */
-    div[data-testid="stVerticalBlock"] > div:last-child [data-testid="stHorizontalBlock"] > div {
+    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] > div {
         flex: 1 !important;
         min-width: 0 !important;
-        text-align: center !important;
+        width: 33.33% !important;
     }
 
-    /* ナビゲーション用ボタンのスタイル */
-    div.stButton > button {
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        border: none !important;
+    /* ナビゲーションボタン */
+    div[data-testid="stVerticalBlock"] > div:last-child button {
         background-color: transparent !important;
-        color: #666666 !important;
-        font-size: 14px !important;
-        padding: 5px 0 !important;
+        color: #444444 !important;
+        border: none !important;
+        height: auto !important;
+        padding: 5px !important;
+        font-size: 15px !important;
+        width: 100% !important;
     }
     
-    /* 選択中のボタン強調（オレンジの下線） */
     .active-nav button {
         color: #FF9900 !important;
         border-bottom: 3px solid #FF9900 !important;
         border-radius: 0 !important;
     }
 
-    /* 生成ボタンなどの目立つボタン */
+    /* オレンジボタン（生成など） */
     .primary-btn button {
         background-color: #FF9900 !important;
         color: white !important;
-        height: 52px !important;
+        height: 54px !important;
         font-size: 18px !important;
-        box-shadow: 0 4px 6px rgba(255,153,0,0.2) !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
     }
 
     .recipe-card {
         background-color: #FFFFFF !important;
-        padding: 24px !important;
+        padding: 25px !important;
         border-radius: 12px !important;
-        border: 1px solid #EEEEEE !important;
+        border: 1px solid #DDDDDD !important;
         color: #000000 !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.03) !important;
     }
     
     h1 {
@@ -111,17 +106,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- ページ切り替え関数 ---
 def change_page(page_name):
     st.session_state.page = page_name
 
-# ==========================================
-# メインコンテンツ表示
-# ==========================================
-
+# --- 各画面のコンテンツ ---
 if st.session_state.page == "作る":
     st.markdown("<h1>レシピを作る</h1>", unsafe_allow_html=True)
-    st.caption("食材の写真を撮って、AIに献立をまかせましょう")
+    st.caption("食材の写真を解析して献立をご提案します")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -137,19 +128,19 @@ if st.session_state.page == "作る":
             img = Image.open(f)
             with cols[i % 4]: st.image(img, use_column_width=True)
         
-        if st.button("① 食材を読み取る", use_container_width=True):
+        if st.button("1. 食材を読み取る", use_container_width=True):
             with st.spinner("解析中..."):
                 stream = gemini_handler.identify_ingredients([Image.open(f) for f in uploaded_files])
                 st.session_state.ingredients_list = st.write_stream(stream)
 
     if st.session_state.ingredients_list:
-        st.markdown("<br>### 2. 食材リスト", unsafe_allow_html=True)
-        edited = st.text_area("食材", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
-        is_choi = st.checkbox("🥕 ちょい足しモード（定番食材をプラス）", value=False)
+        st.markdown("<br>### 2. 食材リスト（編集可）", unsafe_allow_html=True)
+        edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
+        is_choi = st.checkbox("ちょい足しモード（定番食材を追加して提案）", value=False)
         
         st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
-        if st.button("② この食材でレシピ生成！", use_container_width=True):
-            with st.status("Geminiシェフが考案中...", expanded=True) as status:
+        if st.button("3. この食材でレシピ生成", use_container_width=True):
+            with st.status("レシピを考案中...", expanded=True) as status:
                 placeholder = st.empty()
                 stream = gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi)
                 with placeholder:
@@ -157,7 +148,7 @@ if st.session_state.page == "作る":
                 st.session_state.recipe_result = result
                 st.session_state.ingredients_list = edited
                 placeholder.empty()
-                status.update(label="完成しました！", state="complete")
+                status.update(label="完成しました", state="complete")
             change_page("確認")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -166,7 +157,7 @@ elif st.session_state.page == "確認":
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
     
     if not st.session_state.recipe_result:
-        st.info("「作る」画面からレシピを作ってください")
+        st.info("「作る」画面からレシピを生成してください")
     else:
         result_text = st.session_state.recipe_result
         pattern = re.compile(r'##\s*案([A-C|Ａ-Ｃ])[:：]')
@@ -185,10 +176,10 @@ elif st.session_state.page == "確認":
                     st.markdown(f"<div class='recipe-card'>{result_text[start:end]}</div>", unsafe_allow_html=True)
         
             st.markdown("---")
-            if st.button("⭐ このレシピをお気に入り保存", use_container_width=True):
-                new_entry = {"date": datetime.datetime.now().strftime("%m/%d %H:%M"), "content": result_text}
+            if st.button("このレシピを保存する", use_container_width=True):
+                new_entry = {"date": datetime.datetime.now().strftime("%Y/%m/%d %H:%M"), "content": result_text}
                 st.session_state.saved_recipes.insert(0, new_entry)
-                st.success("「保存」画面に追加しました")
+                st.success("保存しました")
         else:
             st.markdown(f"<div class='recipe-card'>{result_text}</div>", unsafe_allow_html=True)
 
@@ -196,39 +187,32 @@ elif st.session_state.page == "保存":
     st.markdown("<h1>保存済みレシピ</h1>", unsafe_allow_html=True)
     
     if not st.session_state.saved_recipes:
-        st.info("まだ保存されたレシピはありません")
+        st.info("保存されたレシピはありません")
     else:
         for i, item in enumerate(st.session_state.saved_recipes):
-            with st.expander(f"📅 {item['date']} のレシピ"):
+            with st.expander(f"{item['date']} のレシピ"):
                 st.markdown(f"<div class='recipe-card'>{item['content']}</div>", unsafe_allow_html=True)
                 if st.button(f"削除", key=f"del_{i}"):
                     st.session_state.saved_recipes.pop(i)
                     st.rerun()
 
-# ==========================================
-# 下部ナビゲーション（フッター）
-# ==========================================
-
-# 画面の最後に置くことで、CSSで固定されたバーを生成する
-nc1, nc2, nc3 = st.columns(3)
-
-with nc1:
+# --- フッターナビゲーション ---
+c1, c2, c3 = st.columns(3)
+with c1:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "作る" else ""}">', unsafe_allow_html=True)
-    if st.button("🧑‍🍳 作る", key="b1", use_container_width=True):
+    if st.button("作る", key="nav1", use_container_width=True):
         change_page("作る")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-
-with nc2:
+with c2:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "確認" else ""}">', unsafe_allow_html=True)
-    if st.button("📓 確認", key="b2", use_container_width=True):
+    if st.button("確認", key="nav2", use_container_width=True):
         change_page("確認")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-
-with nc3:
+with c3:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "保存" else ""}">', unsafe_allow_html=True)
-    if st.button("⭐ 保存", key="b3", use_container_width=True):
+    if st.button("保存", key="nav3", use_container_width=True):
         change_page("保存")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
