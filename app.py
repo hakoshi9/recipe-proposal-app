@@ -281,6 +281,15 @@ if page == "作る":
         st.rerun()
 
 elif page == "確認":
+    # ページ表示時に最上部へスクロール
+    components.html("""
+    <script>
+    window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo({
+        top: 0,
+        behavior: 'instant'
+    });
+    </script>
+    """, height=0)
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
 
     if not st.session_state.recipe_result:
