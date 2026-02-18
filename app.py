@@ -16,24 +16,20 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
     
-    /* 基本フォント設定 */
     html, body {
         font-family: 'Noto Sans JP', sans-serif !important;
     }
 
-    /* 1. 背景と基本文字色：すべてを真っ白背景に濃い黒文字へ */
     .stApp {
         background-color: #FFFFFF !important;
     }
     
-    /* ほぼすべてのテキスト要素を強制的に濃くする */
     .stMarkdown p, .stMarkdown span:not([data-testid="stIconMaterial"]), 
     label, p, li, .stCaption, div[data-testid="stWidgetLabel"] p {
         color: #000000 !important;
         font-weight: 500 !important;
     }
 
-    /* 2. 見出し：クックパッドオレンジを維持しつつ、視認性アップ */
     h1 {
         font-size: 26px !important;
         color: #FF9900 !important;
@@ -48,15 +44,12 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* 3. 入力フォーム類の内部文字色を徹底強化 */
-    /* セレクトボックスの選択済みテキストとラベル */
     div[data-testid="stSelectbox"] label p, 
     div[data-baseweb="select"] > div {
         color: #000000 !important;
         font-weight: 700 !important;
     }
     
-    /* セレクトボックスを開いた時のリスト項目 (ドロップダウンメニュー) */
     div[data-baseweb="popover"] ul {
         background-color: #FFFFFF !important;
     }
@@ -65,12 +58,10 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* ラジオボタンの選択肢 */
     div[data-testid="stMarkdownContainer"] p {
         color: #000000 !important;
     }
 
-    /* 4. ボタン：オレンジ背景に白文字（ここだけは白） */
     div.stButton > button:first-child {
         width: 100%;
         height: 52px;
@@ -83,7 +74,6 @@ st.markdown("""
         box-shadow: 0 4px 0 #CC7A00 !important;
     }
 
-    /* 5. ファイルアップローダー：枠線を濃く */
     section[data-testid="stFileUploadDropzone"] {
         border: 2px dashed #FF9900 !important;
         background-color: #FAFAFA !important;
@@ -92,7 +82,6 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* 6. レシピカード：境界をハッキリさせ、文字を真っ黒に */
     .recipe-card {
         background-color: #FFFFFF !important;
         padding: 25px !important;
@@ -103,10 +92,9 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }
     .recipe-card b, .recipe-card strong {
-        color: #FF9900 !important; /* カード内の強調はオレンジ */
+        color: #FF9900 !important;
     }
 
-    /* 7. タブ：非選択時も見えるように濃くする */
     .stTabs [data-baseweb="tab"] {
         color: #444444 !important;
         font-weight: 600 !important;
@@ -116,7 +104,6 @@ st.markdown("""
         border-bottom: 4px solid #FF9900 !important;
     }
 
-    /* 8. ステータス・通知の重なり修正 */
     div[data-testid="stStatus"] label {
         margin-left: 20px !important;
         color: #000000 !important;
@@ -195,18 +182,23 @@ if st.session_state.ingredients_list:
         st.session_state.ingredients_list = edited_ingredients
         
         with st.status("レシピを考案中...", expanded=True) as status:
+            # 高機能化：生成中はストリームを表示するが、完了後にクリアする
+            stream_placeholder = st.empty()
             try:
                 stream = gemini_handler.generate_recipe(
                     edited_ingredients, mode, num_dishes, is_choi_tashi
                 )
-                full_response = st.write_stream(stream)
+                with stream_placeholder:
+                    full_response = st.write_stream(stream)
+                
+                # 生成完了！生テキストを消去して、セッションに保存
+                stream_placeholder.empty()
                 st.session_state.recipe_result = full_response
-                # アコーディオンとして閉じないように expanded=True を維持
-                status.update(label="完成しました", state="complete", expanded=True)
+                status.update(label="完成しました", state="complete", expanded=False)
             except Exception as e:
                 st.error(f"エラーが発生しました: {e}")
 
-# --- レシピ結果表示 ---
+# --- レシピ結果表示エリア（整理された表示） ---
 if st.session_state.recipe_result:
     st.markdown("---")
     st.markdown("### 🍽 提案レシピ")
