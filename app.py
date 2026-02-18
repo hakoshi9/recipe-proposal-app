@@ -41,6 +41,10 @@ if 'recipe_result' not in st.session_state:
     st.session_state.recipe_result = ""
 if 'saved_recipes' not in st.session_state:
     st.session_state.saved_recipes = []
+if 'is_generating' not in st.session_state:
+    st.session_state.is_generating = False
+if 'is_choi' not in st.session_state:
+    st.session_state.is_choi = False
 if 'session_key' not in st.session_state:
     # セッションごとに一意なキーを生成
     import uuid
@@ -249,23 +253,32 @@ if page == "作る":
         edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
         is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
 
-        if st.button("3. レシピを生成", use_container_width=True):
-            with st.spinner("レシピを考案中..."):
-                # ストリーミングは内部で受け取るだけ（表示はしない）
-                accumulated = "".join(
-                    chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi)
-                )
-            # session_stateに確実に保存
-            st.session_state.recipe_result = accumulated
-            st.session_state.ingredients_list = edited
-            # サーバー側キャッシュにも保存
-            save_cache(st.session_state.session_key, {
-                "recipe_result": accumulated,
-                "ingredients_list": edited
-            })
-            # 確認画面へ遷移
-            st.session_state.page = "確認"
-            st.rerun()
+        if st.session_state.is_generating:
+            # 生成中はボタンを非表示にしてメッセージのみ表示
+            st.info("レシピを考案中です。しばらくお待ちください...")
+        else:
+            if st.button("3. レシピを生成", use_container_width=True):
+                st.session_state.is_generating = True
+                st.session_state.is_choi = is_choi  # チェックボックスの値を保存
+                st.rerun()
+
+    # 生成フラグが立っている場合に実際の処理を実行
+    if st.session_state.get('is_generating') and st.session_state.ingredients_list:
+        edited = st.session_state.ingredients_list
+        is_choi = st.session_state.is_choi  # 保存済みの値を使用
+        with st.spinner("レシピを考案中..."):
+            accumulated = "".join(
+                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi)
+            )
+        st.session_state.recipe_result = accumulated
+        st.session_state.ingredients_list = edited
+        st.session_state.is_generating = False
+        save_cache(st.session_state.session_key, {
+            "recipe_result": accumulated,
+            "ingredients_list": edited
+        })
+        st.session_state.page = "確認"
+        st.rerun()
 
 elif page == "確認":
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
