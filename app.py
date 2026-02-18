@@ -22,12 +22,11 @@ if 'saved_recipes' not in st.session_state:
     st.session_state.saved_recipes = []
 
 page = st.session_state.page
-
-# --- CSS + HTMLフッター（Streamlitの構造に依存しない純粋なHTML固定フッター） ---
 active_create  = "nav-active" if page == "作る" else ""
 active_confirm = "nav-active" if page == "確認" else ""
 active_save    = "nav-active" if page == "保存" else ""
 
+# --- CSS（stAppをflexコンテナにしてフッターを最下部に固定） ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
@@ -35,15 +34,30 @@ st.markdown(f"""
     html, body {{
         font-family: 'Noto Sans JP', sans-serif !important;
         background-color: #FFFFFF !important;
+        height: 100%;
+        margin: 0;
     }}
 
     /* Streamlitのデフォルトヘッダー・フッターを非表示 */
     header[data-testid="stHeader"] {{ display: none !important; }}
     footer {{ display: none !important; }}
 
-    /* コンテンツエリア：フッター分の余白を確保 */
+    /* stApp全体をflexコンテナにして縦方向に伸ばす */
+    [data-testid="stAppViewContainer"] {{
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
+    }}
+
+    /* メインコンテンツが残りのスペースを占有 */
+    [data-testid="stAppViewContainer"] > section.main {{
+        flex: 1 !important;
+        overflow-y: auto !important;
+    }}
+
+    /* コンテンツエリアの余白 */
     .main .block-container {{
-        padding-bottom: 100px !important;
+        padding-bottom: 20px !important;
         padding-top: 15px !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
@@ -61,10 +75,11 @@ st.markdown(f"""
         display: flex;
         flex-direction: row;
         justify-content: space-around;
-        align-items: center;
-        padding: 10px 0 env(safe-area-inset-bottom, 15px);
+        align-items: stretch;
+        padding: 0;
         z-index: 999999;
         box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+        box-sizing: border-box;
     }}
 
     .nav-btn {{
@@ -72,19 +87,25 @@ st.markdown(f"""
         text-align: center;
         background: none;
         border: none;
+        border-bottom: 3px solid transparent;
         font-family: 'Noto Sans JP', sans-serif;
         font-size: 15px;
         font-weight: 700;
         color: #888888;
-        padding: 8px 0;
+        padding: 12px 0 14px 0;
         cursor: pointer;
-        border-bottom: 3px solid transparent;
-        transition: color 0.2s, border-color 0.2s;
+        transition: color 0.15s, border-color 0.15s;
+        -webkit-tap-highlight-color: transparent;
     }}
 
     .nav-btn.nav-active {{
         color: #FF9900;
         border-bottom: 3px solid #FF9900;
+    }}
+
+    /* コンテンツがフッターに隠れないよう余白を追加 */
+    .content-spacer {{
+        height: 80px;
     }}
 
     /* メインアクションボタン */
@@ -97,12 +118,6 @@ st.markdown(f"""
         border-radius: 8px !important;
         border: none !important;
         width: 100% !important;
-    }}
-
-    /* サブボタン（食材読み取りなど）は白背景 */
-    div.stButton > button[kind="secondary"] {{
-        background-color: #F5F5F5 !important;
-        color: #333333 !important;
     }}
 
     .recipe-card {{
@@ -124,15 +139,15 @@ st.markdown(f"""
     }}
 </style>
 
-<!-- 固定フッターナビゲーション（純粋なHTML） -->
+<!-- 固定フッターナビゲーション -->
 <div class="fixed-footer">
-    <form method="get" style="flex:1;margin:0;">
+    <form method="get" style="flex:1;margin:0;display:flex;">
         <button class="nav-btn {active_create}" name="nav" value="作る" type="submit">作る</button>
     </form>
-    <form method="get" style="flex:1;margin:0;">
+    <form method="get" style="flex:1;margin:0;display:flex;">
         <button class="nav-btn {active_confirm}" name="nav" value="確認" type="submit">確認</button>
     </form>
-    <form method="get" style="flex:1;margin:0;">
+    <form method="get" style="flex:1;margin:0;display:flex;">
         <button class="nav-btn {active_save}" name="nav" value="保存" type="submit">保存</button>
     </form>
 </div>
@@ -236,3 +251,6 @@ elif page == "保存":
                 if st.button("削除", key=f"del_{i}"):
                     st.session_state.saved_recipes.pop(i)
                     st.rerun()
+
+# フッターに隠れないためのスペーサー
+st.markdown("<div class='content-spacer'></div>", unsafe_allow_html=True)
