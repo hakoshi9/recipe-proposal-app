@@ -1,6 +1,9 @@
 import os
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 from dotenv import load_dotenv
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -11,52 +14,136 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-def get_recipe_from_image(image, mode):
+# --- 設定: モデルをグローバルで初期化 ---
+# システムプロンプトを事前に設定し、役割を明確化
+vision_model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction="あなたは画像解析のエキスパートです。余計な会話はせず、結果のみを出力します。"
+)
+
+recipe_model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction="あなたはプロの料理研究家兼管理栄養士です。"
+)
+
+# --- 高速化のための画像リサイズ関数 ---
+def resize_image_for_api(image, max_size=1024):
     """
-    Generates a recipe based on the provided image and mode using Gemini 1.5 Flash.
+    画像をAIに適したサイズにリサイズします。
+    画質を維持しつつ、長辺をmax_size以下にします。
+    """
+    if not isinstance(image, Image.Image):
+         return image
 
-    Args:
-        image: PIL Image object.
-        mode: String indicating the selected mode (e.g., "一般的な料理", "離乳食(5-6ヶ月)").
+    width, height = image.size
+    if max(width, height) <= max_size:
+        return image
 
-    Returns:
-        String containing the generated recipe response.
+    ratio = max_size / max(width, height)
+    new_width = int(width * ratio)
+    new_height = int(height * ratio)
+    
+    return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+def identify_ingredients(images):
+    """
+    Analyzes images and lists visible ingredients.
     """
     
-    # Model configuration
-    model = genai.GenerativeModel('gemini-flash-latest')
+    # 1. 画像の前処理（リサイズによる高速化）
+    processed_images = [resize_image_for_api(img) for img in images]
 
-    # Constructing the prompt based on the mode
-    base_prompt = """
-    あなたはプロの料理研究家兼管理栄養士です。
-    アップロードされた画像を分析し、そこに写っている食材を特定してください。
-    その食材を使った、美味しくて作りやすいレシピを1つ提案してください。
+    prompt = """
+    写っている食材をすべてリストアップしてください。
     
     出力フォーマット:
-    ## 料理名: [ここに料理名]
+    - [食材名]
+    - [食材名]
     
-    ### 材料
-    - [食材1]: [分量]
-    - [食材2]: [分量]
-    ...
+    余計な文章は含めず、箇条書きのリストのみを出力してください。
+    """
     
-    ### 手順
-    1. [手順1]
-    2. [手順2]
-    ...
+    # 2. 生成設定（トークン制限でレスポンスを早く切る & 決定論的にする）
+    generation_config = genai.types.GenerationConfig(
+        max_output_tokens=300,
+        temperature=0.0
+    )
+
+    try:
+        content = [prompt] + processed_images
+        
+        # vision_modelを使用
+        response = vision_model.generate_content(
+            content, 
+            stream=True,
+            generation_config=generation_config
+        )
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+    except ResourceExhausted:
+         yield "⚠️ APIの利用制限（1分間の回数制限）に達しました。1分ほど時間を空けてから、もう一度ボタンを押してください。☕"
+    except Exception as e:
+        yield f"エラー: {str(e)}"
+
+def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False):
+    """
+    Generates recipes based on the provided ingredients list, mode, and number of dishes.
+    Always generates 3 patterns (Plan A, B, C).
+    """
     
-    ### ポイント
-    [美味しく作るコツや代用食材など]
+    # ベースプロンプト
+    base_prompt = f"""
+    【使用する食材リスト】
+    {ingredients_text}
     """
 
+    if is_choi_tashi:
+        base_prompt += f"""
+        上記の食材リストに加え、**一般家庭によくある食材（卵、牛乳、玉ねぎ、各種調味料など）**から2〜3品を「ちょい足し」して、
+        より美味しく、満足度の高いレシピ・献立にグレードアップしてください。
+        """
+    else:
+        base_prompt += f"""
+        上記の食材（すべてでなくてもよい、調味料は適宜追加可）を使って、
+        美味しくて作りやすいレシピを提案してください。
+        """
+        
+    # 共通の出力指示（3パターン提案 & 調理時間）
+    base_prompt += f"""
+    【重要なお願い】
+    全く異なるアプローチの献立を**3パターン（案A, 案B, 案C）**提案してください。
+    （例: 案Aは和風、案Bは洋風、案Cは中華風など、味付けやジャンルを変えてください）
+    各案はそれぞれ【{num_dishes}品】構成にしてください。
+    
+    出力フォーマット:
+    
+    ---
+    ## 案A: [コンセプト/料理名]
+    **調理時間:** [約〇分]
+    (以下、{num_dishes}品のレシピ詳細)
+    - 材料: ...
+    - 手順: ...
+    - ポイント: ...
+    
+    ---
+    ## 案B: [コンセプト/料理名]
+    **調理時間:** [約〇分]
+    (以下、{num_dishes}品のレシピ詳細)
+    
+    ---
+    ## 案C: [コンセプト/料理名]
+    **調理時間:** [約〇分]
+    (以下、{num_dishes}品のレシピ詳細)
+    """
+
+    # 離乳食などの条件
     if "離乳食" in mode:
         baby_food_stage = mode.replace("離乳食", "").strip("()")
-        prompt = f"""
-        {base_prompt}
+        base_prompt += f"""
         
         【重要】
-        今回は「{baby_food_stage}」向けの離乳食レシピを提案してください。
-        
+        今回は「{baby_food_stage}」向けの離乳食レシピです。
         以下の点に厳重に注意してください:
         1. 食材の大きさ、固さは{baby_food_stage}の赤ちゃんが安全に食べられるものにしてください。
         2. 味付けは月齢に合わせてごく薄味、または素材の味のみにしてください。
@@ -67,15 +154,19 @@ def get_recipe_from_image(image, mode):
         """
     else:
         # General cooking mode
-        prompt = f"""
-        {base_prompt}
+        base_prompt += f"""
         
         ターゲット: 忙しい人、家にある食材を使い切りたい人
         手軽に作れる家庭料理を提案してください。
         """
 
     try:
-        response = model.generate_content([prompt, image])
-        return response.text
+        # recipe_modelを使用
+        response = recipe_model.generate_content(base_prompt, stream=True)
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+    except ResourceExhausted:
+         yield "⚠️ APIの利用制限（1分間の回数制限）に達しました。1分ほど時間を空けてから、もう一度ボタンを押してください。☕"
     except Exception as e:
-        return f"エラーが発生しました: {str(e)}"
+        yield f"エラーが発生しました: {str(e)}"
