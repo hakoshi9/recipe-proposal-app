@@ -251,19 +251,19 @@ if page == "作る":
 
         if st.button("3. レシピを生成", use_container_width=True):
             with st.spinner("レシピを考案中..."):
-                result_placeholder = st.empty()
-                accumulated = ""
-                for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi):
-                    accumulated += chunk
-                    result_placeholder.markdown(accumulated)
-                # session_stateに保存
-                st.session_state.recipe_result = accumulated
-                st.session_state.ingredients_list = edited
-            # サーバー側キャッシュファイルに保存（ページ離脱・リロード後も復元可能）
+                # ストリーミングは内部で受け取るだけ（表示はしない）
+                accumulated = "".join(
+                    chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi)
+                )
+            # session_stateに確実に保存
+            st.session_state.recipe_result = accumulated
+            st.session_state.ingredients_list = edited
+            # サーバー側キャッシュにも保存
             save_cache(st.session_state.session_key, {
                 "recipe_result": accumulated,
                 "ingredients_list": edited
             })
+            # 確認画面へ遷移
             st.session_state.page = "確認"
             st.rerun()
 
