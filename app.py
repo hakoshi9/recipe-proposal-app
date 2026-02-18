@@ -222,6 +222,15 @@ if page == "作る":
             with st.spinner("解析中..."):
                 stream = gemini_handler.identify_ingredients([Image.open(f) for f in files])
                 st.session_state.ingredients_list = st.write_stream(stream)
+            # 読み取り完了後、画面を下にスクロールして結果を表示
+            components.html("""
+            <script>
+            window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo({
+                top: 99999,
+                behavior: 'smooth'
+            });
+            </script>
+            """, height=0)
 
     if st.session_state.ingredients_list:
         st.markdown("### 2. 食材リスト（編集可）")
