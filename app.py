@@ -194,15 +194,17 @@ if page == "作る":
         is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
 
         if st.button("3. レシピを生成", use_container_width=True):
-            with st.status("レシピを考案中...", expanded=True) as status:
-                placeholder = st.empty()
-                stream = gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi)
-                with placeholder:
-                    result = st.write_stream(stream)
-                st.session_state.recipe_result = result
+            with st.spinner("レシピを考案中..."):
+                result_chunks = []
+                result_placeholder = st.empty()
+                accumulated = ""
+                for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi):
+                    accumulated += chunk
+                    result_placeholder.markdown(accumulated)
+                # 生成完了後、session_stateに確実に保存
+                st.session_state.recipe_result = accumulated
                 st.session_state.ingredients_list = edited
-                placeholder.empty()
-                status.update(label="完成しました", state="complete")
+            # session_state保存後にページ遷移
             st.session_state.page = "確認"
             st.rerun()
 
