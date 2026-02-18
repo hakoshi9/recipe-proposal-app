@@ -220,7 +220,7 @@ if page == "作る":
         cols = st.columns(min(len(files), 4))
         for i, f in enumerate(files):
             with cols[i % 4]:
-                st.image(Image.open(f), use_container_width=True)
+                st.image(Image.open(f), use_column_width=True)
 
         # 画像選択後、「食材を読み取る」ボタンが見えるよう自動スクロール
         components.html("""
