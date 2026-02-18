@@ -218,6 +218,16 @@ if page == "作る":
             with cols[i % 4]:
                 st.image(Image.open(f), use_column_width=True)
 
+        # 画像選択後、「食材を読み取る」ボタンが見えるよう自動スクロール
+        components.html("""
+        <script>
+        window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo({
+            top: 99999,
+            behavior: 'smooth'
+        });
+        </script>
+        """, height=0)
+
         if st.button("1. 食材を読み取る", use_container_width=True):
             with st.spinner("解析中..."):
                 stream = gemini_handler.identify_ingredients([Image.open(f) for f in files])
