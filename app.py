@@ -103,12 +103,6 @@ st.markdown("""
         color: #FF9900 !important;
         border-bottom: 4px solid #FF9900 !important;
     }
-
-    div[data-testid="stStatus"] label {
-        margin-left: 20px !important;
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,7 +133,6 @@ with c2:
     )
 
 # --- 写真アップロード ---
-st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
 uploaded_files = st.file_uploader(
     "食材の写真を撮影または選択してください", 
     type=["jpg", "jpeg", "png", "webp"],
@@ -181,8 +174,9 @@ if st.session_state.ingredients_list:
         st.session_state.recipe_result = ""
         st.session_state.ingredients_list = edited_ingredients
         
-        with st.status("レシピを考案中...", expanded=True) as status:
-            # 高機能化：生成中はストリームを表示するが、完了後にクリアする
+        # 進行状況表示用コンテナ
+        status_box = st.empty()
+        with status_box.status("レシピを考案中...", expanded=True) as status:
             stream_placeholder = st.empty()
             try:
                 stream = gemini_handler.generate_recipe(
@@ -191,30 +185,45 @@ if st.session_state.ingredients_list:
                 with stream_placeholder:
                     full_response = st.write_stream(stream)
                 
-                # 生成完了！生テキストを消去して、セッションに保存
+                # 生成完了！一時的な表示を消去
                 stream_placeholder.empty()
                 st.session_state.recipe_result = full_response
-                status.update(label="完成しました", state="complete", expanded=False)
+                # 「完成しました」コンテナ自体を少し待ってから消去（一瞬だけ見せる）
+                status.update(label="完成しました", state="complete")
             except Exception as e:
                 st.error(f"エラーが発生しました: {e}")
+        status_box.empty() # 完成後、ステータスアコーディオンを完全に消去
 
-# --- レシピ結果表示エリア（整理された表示） ---
+# --- レシピ結果表示エリア ---
 if st.session_state.recipe_result:
     st.markdown("---")
-    st.markdown("### 🍽 提案レシピ")
     
     result_text = st.session_state.recipe_result
+    
+    # 正規表現で「案A」以降を分割
     pattern = re.compile(r'##\s*案([A-C|Ａ-Ｃ])[:：]')
     matches = list(pattern.finditer(result_text))
     
-    if len(matches) >= 2:
+    # 案Aの前にテキスト（警告文など）があるかチェック
+    if matches:
+        intro_text = result_text[:matches[0].start()].strip()
+        # 注意書きがあれば、レシピ全体の前に表示
+        if intro_text:
+            if "⚠️" in intro_text or "注意" in intro_text or "アレルギー" in intro_text:
+                st.warning(intro_text)
+            else:
+                st.info(intro_text)
+
+        # レシピ案をタブ表示
         tab_labels = []
         for m in matches:
-            start = m.start()
-            end_line = result_text.find('\n', start)
-            label = result_text[start:end_line].replace('#', '').strip()
-            label = label.replace("案", "")
-            tab_labels.append(label)
+            label_match = re.search(r'##\s*(.*?案[A-C|Ａ-Ｃ][:：].*)', result_text[m.start():])
+            if label_match:
+                full_label = label_match.group(1).split('\n')[0].replace('#', '').strip()
+                # ラベルを短縮（案A: 〇〇）
+                tab_labels.append(full_label.replace("案", ""))
+            else:
+                tab_labels.append(f"案{len(tab_labels)+1}")
         
         tabs = st.tabs(tab_labels)
         for i, tab in enumerate(tabs):
@@ -224,12 +233,13 @@ if st.session_state.recipe_result:
             with tab:
                 st.markdown(f"<div class='recipe-card'>{content}</div>", unsafe_allow_html=True)
     else:
+         # 分割できない場合はそのまま表示
          st.markdown(f"<div class='recipe-card'>{result_text}</div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("##### 🛒 買い出しリスト")
     c1, c2 = st.columns(2)
     with c1:
-        st.info("🥦 食材宅配をチェック")
+        st.info("🥦 食材宅配サービス")
     with c2:
         st.info("🔪 おすすめ調理器具")
