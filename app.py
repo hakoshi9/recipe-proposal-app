@@ -7,7 +7,7 @@ import datetime
 # --- ページ設定 ---
 st.set_page_config(
     page_title="レシピ提案AI",
-    layout="centered",
+    layout="wide", # ワイド設定に変更して左右の余白を解放
     initial_sidebar_state="collapsed"
 )
 
@@ -21,7 +21,7 @@ if 'recipe_result' not in st.session_state:
 if 'saved_recipes' not in st.session_state:
      st.session_state.saved_recipes = []
 
-# --- CSS設定（絵文字厳禁・フッター横並び物理固定） ---
+# --- CSS設定（余白削減・フッター横並び物理固定） ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
@@ -31,18 +31,16 @@ st.markdown("""
         background-color: #FFFFFF !important;
     }
 
+    /* 左右の余白を大幅に削減 */
     .main .block-container {
         padding-bottom: 120px !important;
-        padding-top: 20px !important;
+        padding-top: 10px !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
     }
 
     /* 下部ナビゲーションの物理的固定 */
-    /* stHorizontalBlock が Streamlit のレイアウト単位 */
-    div[data-testid="stAppViewContainer"] [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {
-        /* この指定がフッター（最後の行）にのみ適用されるよう、後述のセレクタで絞り込みます */
-    }
-
-    /* 最後の行にある水平ブロック（ナビゲーション）を強制的に横並び・固定 */
     div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] {
         position: fixed !important;
         bottom: 0 !important;
@@ -58,15 +56,13 @@ st.markdown("""
         justify-content: space-around !important;
     }
 
-    /* 各カラムの縦並びを阻止し、均等幅に */
+    /* カラムの横並びを徹底強制 */
     div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         flex: 1 1 0% !important;
         min-width: 0 !important;
         width: 33% !important;
-        display: block !important;
     }
 
-    /* ボタンのフラットデザイン（絵文字なし） */
     div[data-testid="stVerticalBlock"] > div:last-child button {
         background-color: transparent !important;
         color: #444444 !important;
@@ -74,17 +70,14 @@ st.markdown("""
         width: 100% !important;
         font-size: 15px !important;
         font-weight: 700 !important;
-        padding: 10px 0 !important;
     }
     
-    /* アクティブなページのスタイル */
     .active-nav button {
         color: #FF9900 !important;
         border-bottom: 3px solid #FF9900 !important;
         border-radius: 0 !important;
     }
 
-    /* オレンジボタン */
     .primary-btn button {
         background-color: #FF9900 !important;
         color: white !important;
@@ -96,14 +89,14 @@ st.markdown("""
 
     .recipe-card {
         background-color: #FFFFFF !important;
-        padding: 25px !important;
+        padding: 20px !important;
         border-radius: 12px !important;
         border: 1px solid #DDDDDD !important;
         color: #000000 !important;
     }
     
     h1 {
-        font-size: 24px !important;
+        font-size: 22px !important;
         color: #FF9900 !important;
         border-bottom: 3px solid #FF9900 !important;
         padding-bottom: 5px !important;
@@ -114,7 +107,6 @@ st.markdown("""
 def change_page(page_name):
     st.session_state.page = page_name
 
-# --- 各画面のコンテンツ ---
 if st.session_state.page == "作る":
     st.markdown("<h1>レシピを作る</h1>", unsafe_allow_html=True)
     st.caption("食材の写真を解析して献立をご提案します")
@@ -139,9 +131,9 @@ if st.session_state.page == "作る":
                 st.session_state.ingredients_list = st.write_stream(stream)
 
     if st.session_state.ingredients_list:
-        st.markdown("<br>### 2. 食材リスト（編集可）", unsafe_allow_html=True)
+        st.markdown("<br>### 2. 食材リスト", unsafe_allow_html=True)
         edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
-        is_choi = st.checkbox("ちょい足しモード（定番食材を追加して提案）", value=False)
+        is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
         
         st.markdown('<div class="primary-btn">', unsafe_allow_html=True)
         if st.button("3. この食材でレシピ生成", use_container_width=True):
@@ -162,7 +154,7 @@ elif st.session_state.page == "確認":
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
     
     if not st.session_state.recipe_result:
-        st.info("レシピを作る画面で食材を解析してください")
+        st.info("食材を解析してください")
     else:
         result_text = st.session_state.recipe_result
         pattern = re.compile(r'##\s*案([A-C|Ａ-Ｃ])[:：]')
@@ -201,8 +193,7 @@ elif st.session_state.page == "保存":
                     st.session_state.saved_recipes.pop(i)
                     st.rerun()
 
-# --- フッター（モバイルでも強制横並び） ---
-# 画面の最後で st.columns を呼び出し、CSSで row 指定を上書き
+# --- フッター（横並び強制） ---
 nc1, nc2, nc3 = st.columns(3)
 
 with nc1:
