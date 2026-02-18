@@ -210,7 +210,7 @@ if page == "作る":
     with c2:
         num_dishes = st.radio("品数", (1, 2, 3), format_func=lambda x: f"{x}品", horizontal=True)
 
-    files = st.file_uploader("写真をアップロード", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True)
+    files = st.file_uploader("食材の写真をアップロード", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True)
 
     if files:
         cols = st.columns(min(len(files), 4))
@@ -229,9 +229,11 @@ if page == "作る":
         """, height=0)
 
         if st.button("1. 食材を読み取る", use_container_width=True):
-            with st.spinner("解析中..."):
+            with st.status("画像を解析中...", expanded=True) as status:
+                st.write("AIが食材を識別しています。しばらくお待ちください。")
                 stream = gemini_handler.identify_ingredients([Image.open(f) for f in files])
                 st.session_state.ingredients_list = st.write_stream(stream)
+                status.update(label="読み取り完了", state="complete", expanded=False)
             # 読み取り完了後、画面を下にスクロールして結果を表示
             components.html("""
             <script>
