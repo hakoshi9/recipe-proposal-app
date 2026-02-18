@@ -3,6 +3,11 @@ from PIL import Image
 import gemini_handler
 import re
 import datetime
+import streamlit.components.v1 as components
+import urllib.parse
+import os
+import json
+import hashlib
 
 # --- ページ設定 ---
 st.set_page_config(
@@ -10,6 +15,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# --- キャッシュファイルのパス ---
+CACHE_DIR = os.path.join(os.path.dirname(__file__), ".recipe_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def save_cache(key, data):
+    path = os.path.join(CACHE_DIR, f"{key}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+def load_cache(key):
+    path = os.path.join(CACHE_DIR, f"{key}.json")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
 
 # --- セッション状態の初期化 ---
 if 'page' not in st.session_state:
@@ -20,13 +41,45 @@ if 'recipe_result' not in st.session_state:
     st.session_state.recipe_result = ""
 if 'saved_recipes' not in st.session_state:
     st.session_state.saved_recipes = []
+if 'session_key' not in st.session_state:
+    # セッションごとに一意なキーを生成
+    import uuid
+    st.session_state.session_key = str(uuid.uuid4())[:8]
+if 'cache_loaded' not in st.session_state:
+    st.session_state.cache_loaded = False
+
+# --- キャッシュからの復元（初回のみ） ---
+if not st.session_state.cache_loaded:
+    # 最新のキャッシュファイルを探して復元
+    cache_files = sorted(
+        [f for f in os.listdir(CACHE_DIR) if f.endswith(".json")],
+        key=lambda f: os.path.getmtime(os.path.join(CACHE_DIR, f)),
+        reverse=True
+    )
+    if cache_files:
+        latest = load_cache(cache_files[0].replace(".json", ""))
+        if latest:
+            if not st.session_state.recipe_result and latest.get("recipe_result"):
+                st.session_state.recipe_result = latest["recipe_result"]
+            if not st.session_state.ingredients_list and latest.get("ingredients_list"):
+                st.session_state.ingredients_list = latest["ingredients_list"]
+    st.session_state.cache_loaded = True
+
+# --- URLパラメータでページ切り替え ---
+params = st.query_params
+if "nav" in params:
+    nav_val = params["nav"]
+    if nav_val in ["作る", "確認", "保存"] and st.session_state.page != nav_val:
+        st.session_state.page = nav_val
+        st.query_params.clear()
+        st.rerun()
 
 page = st.session_state.page
 active_create  = "nav-active" if page == "作る" else ""
 active_confirm = "nav-active" if page == "確認" else ""
 active_save    = "nav-active" if page == "保存" else ""
 
-# --- CSS（stAppをflexコンテナにしてフッターを最下部に固定） ---
+# --- CSS + 固定フッター ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
@@ -38,24 +91,20 @@ st.markdown(f"""
         margin: 0;
     }}
 
-    /* Streamlitのデフォルトヘッダー・フッターを非表示 */
     header[data-testid="stHeader"] {{ display: none !important; }}
     footer {{ display: none !important; }}
 
-    /* stApp全体をflexコンテナにして縦方向に伸ばす */
     [data-testid="stAppViewContainer"] {{
         display: flex !important;
         flex-direction: column !important;
         min-height: 100vh !important;
     }}
 
-    /* メインコンテンツが残りのスペースを占有 */
     [data-testid="stAppViewContainer"] > section.main {{
         flex: 1 !important;
         overflow-y: auto !important;
     }}
 
-    /* コンテンツエリアの余白 */
     .main .block-container {{
         padding-bottom: 20px !important;
         padding-top: 15px !important;
@@ -64,7 +113,6 @@ st.markdown(f"""
         max-width: 100% !important;
     }}
 
-    /* 固定フッターナビゲーション */
     .fixed-footer {{
         position: fixed;
         bottom: 0;
@@ -103,12 +151,10 @@ st.markdown(f"""
         border-bottom: 3px solid #FF9900;
     }}
 
-    /* コンテンツがフッターに隠れないよう余白を追加 */
     .content-spacer {{
         height: 80px;
     }}
 
-    /* メインアクションボタン */
     div.stButton > button {{
         background-color: #FF9900 !important;
         color: #FFFFFF !important;
@@ -153,17 +199,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- URLパラメータでページ切り替え ---
-params = st.query_params
-if "nav" in params:
-    nav_val = params["nav"]
-    if nav_val in ["作る", "確認", "保存"] and st.session_state.page != nav_val:
-        st.session_state.page = nav_val
-        st.query_params.clear()
-        st.rerun()
-
-page = st.session_state.page
-
 # --- メインコンテンツ ---
 if page == "作る":
     st.markdown("<h1>レシピを作る</h1>", unsafe_allow_html=True)
@@ -195,16 +230,19 @@ if page == "作る":
 
         if st.button("3. レシピを生成", use_container_width=True):
             with st.spinner("レシピを考案中..."):
-                result_chunks = []
                 result_placeholder = st.empty()
                 accumulated = ""
                 for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi):
                     accumulated += chunk
                     result_placeholder.markdown(accumulated)
-                # 生成完了後、session_stateに確実に保存
+                # session_stateに保存
                 st.session_state.recipe_result = accumulated
                 st.session_state.ingredients_list = edited
-            # session_state保存後にページ遷移
+            # サーバー側キャッシュファイルに保存（ページ離脱・リロード後も復元可能）
+            save_cache(st.session_state.session_key, {
+                "recipe_result": accumulated,
+                "ingredients_list": edited
+            })
             st.session_state.page = "確認"
             st.rerun()
 
