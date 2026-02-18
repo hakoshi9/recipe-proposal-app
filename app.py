@@ -21,7 +21,7 @@ if 'recipe_result' not in st.session_state:
 if 'saved_recipes' not in st.session_state:
      st.session_state.saved_recipes = []
 
-# --- CSS設定（絵文字排除・フッター横並び強制） ---
+# --- CSS設定（絵文字厳禁・フッター横並び物理固定） ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
@@ -36,55 +36,60 @@ st.markdown("""
         padding-top: 20px !important;
     }
 
-    /* フッターナビゲーションの強制横並び */
-    div[data-testid="stVerticalBlock"] > div:last-child {
+    /* 下部ナビゲーションの物理的固定 */
+    /* stHorizontalBlock が Streamlit のレイアウト単位 */
+    div[data-testid="stAppViewContainer"] [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {
+        /* この指定がフッター（最後の行）にのみ適用されるよう、後述のセレクタで絞り込みます */
+    }
+
+    /* 最後の行にある水平ブロック（ナビゲーション）を強制的に横並び・固定 */
+    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         width: 100% !important;
-        background-color: #FFFFFF !important;
-        border-top: 1px solid #DDDDDD !important;
-        padding: 10px 0 20px 0 !important;
-        z-index: 10000 !important;
-    }
-
-    /* モバイルでの縦並びを徹底的に上書き */
-    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 0 !important;
-    }
-    
-    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] > div {
-        flex: 1 !important;
-        min-width: 0 !important;
-        width: 33.33% !important;
+        background-color: #FFFFFF !important;
+        border-top: 1px solid #DDDDDD !important;
+        padding: 5px 0 25px 0 !important;
+        z-index: 10000 !important;
+        justify-content: space-around !important;
     }
 
-    /* ナビゲーションボタン */
+    /* 各カラムの縦並びを阻止し、均等幅に */
+    div[data-testid="stVerticalBlock"] > div:last-child div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        width: 33% !important;
+        display: block !important;
+    }
+
+    /* ボタンのフラットデザイン（絵文字なし） */
     div[data-testid="stVerticalBlock"] > div:last-child button {
         background-color: transparent !important;
         color: #444444 !important;
         border: none !important;
-        height: auto !important;
-        padding: 5px !important;
-        font-size: 15px !important;
         width: 100% !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        padding: 10px 0 !important;
     }
     
+    /* アクティブなページのスタイル */
     .active-nav button {
         color: #FF9900 !important;
         border-bottom: 3px solid #FF9900 !important;
         border-radius: 0 !important;
     }
 
-    /* オレンジボタン（生成など） */
+    /* オレンジボタン */
     .primary-btn button {
         background-color: #FF9900 !important;
         color: white !important;
         height: 54px !important;
-        font-size: 18px !important;
+        font-size: 17px !important;
         font-weight: 700 !important;
         border-radius: 8px !important;
     }
@@ -157,7 +162,7 @@ elif st.session_state.page == "確認":
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
     
     if not st.session_state.recipe_result:
-        st.info("「作る」画面からレシピを生成してください")
+        st.info("レシピを作る画面で食材を解析してください")
     else:
         result_text = st.session_state.recipe_result
         pattern = re.compile(r'##\s*案([A-C|Ａ-Ｃ])[:：]')
@@ -196,23 +201,27 @@ elif st.session_state.page == "保存":
                     st.session_state.saved_recipes.pop(i)
                     st.rerun()
 
-# --- フッターナビゲーション ---
-c1, c2, c3 = st.columns(3)
-with c1:
+# --- フッター（モバイルでも強制横並び） ---
+# 画面の最後で st.columns を呼び出し、CSSで row 指定を上書き
+nc1, nc2, nc3 = st.columns(3)
+
+with nc1:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "作る" else ""}">', unsafe_allow_html=True)
-    if st.button("作る", key="nav1", use_container_width=True):
+    if st.button("作る", key="b1", use_container_width=True):
         change_page("作る")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-with c2:
+
+with nc2:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "確認" else ""}">', unsafe_allow_html=True)
-    if st.button("確認", key="nav2", use_container_width=True):
+    if st.button("確認", key="b2", use_container_width=True):
         change_page("確認")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-with c3:
+
+with nc3:
     st.markdown(f'<div class="{"active-nav" if st.session_state.page == "保存" else ""}">', unsafe_allow_html=True)
-    if st.button("保存", key="nav3", use_container_width=True):
+    if st.button("保存", key="b3", use_container_width=True):
         change_page("保存")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
