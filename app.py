@@ -82,7 +82,7 @@ if "nav" in params:
     if nav_val in ["作る", "確認", "保存"]:
         st.session_state.page = nav_val
     st.query_params.clear()
-    st.rerun()
+    # st.rerun()
 
 page = st.session_state.page
 active_create  = "nav-active" if page == "作る" else ""
