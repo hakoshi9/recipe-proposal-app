@@ -254,7 +254,7 @@ if page == "作る":
         st.markdown("### 2. 食材リスト（編集可）")
         edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
         is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
-        use_all = st.checkbox("全食材を使い切るモード", value=False)
+        use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
 
         if st.session_state.is_generating:
             # 生成中はボタンを非表示にしてメッセージのみ表示
