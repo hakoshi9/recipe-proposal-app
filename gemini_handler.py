@@ -16,12 +16,12 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # --- 設定: モデルをグローバルで初期化 ---
 vision_model = genai.GenerativeModel(
-    model_name='gemini-2.0-flash',
+    model_name='gemini-2.5-flash',
     system_instruction="あなたは画像解析のエキスパートです。余計な会話はせず、結果のみを出力します。"
 )
 
 recipe_model = genai.GenerativeModel(
-    model_name='gemini-2.0-flash',
+    model_name='gemini-2.5-flash',
     system_instruction="あなたはプロの料理研究家兼管理栄養士です。"
 )
 
