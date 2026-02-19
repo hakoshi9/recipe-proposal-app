@@ -47,6 +47,8 @@ if 'is_choi' not in st.session_state:
     st.session_state.is_choi = False
 if 'use_all' not in st.session_state:
     st.session_state.use_all = False
+if 'extra_request' not in st.session_state:
+    st.session_state.extra_request = ""
 if 'session_key' not in st.session_state:
     # セッションごとに一意なキーを生成
     import uuid
@@ -256,14 +258,23 @@ if page == "作る":
         is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
         use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
 
+        with st.expander("追加の要望（任意）", expanded=False):
+            extra_request = st.text_area(
+                "追加要望",
+                value="",
+                height=80,
+                placeholder="例: 辛いものは避けて、和食でまとめてください、こどもが喘気なのでアレルギーに注意して...",
+                label_visibility="collapsed"
+            )
+
         if st.session_state.is_generating:
-            # 生成中はボタンを非表示にしてメッセージのみ表示
             st.info("レシピを考案中です。しばらくお待ちください...")
         else:
             if st.button("3. レシピを生成", use_container_width=True):
                 st.session_state.is_generating = True
                 st.session_state.is_choi = is_choi
                 st.session_state.use_all = use_all
+                st.session_state.extra_request = extra_request
                 st.rerun()
 
     # 生成フラグが立っている場合に実際の処理を実行
@@ -271,9 +282,10 @@ if page == "作る":
         edited = st.session_state.ingredients_list
         is_choi = st.session_state.is_choi
         use_all = st.session_state.use_all
+        extra_request = st.session_state.extra_request
         with st.spinner("レシピを考案中..."):
             accumulated = "".join(
-                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi, use_all=use_all)
+                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi, use_all=use_all, extra_request=extra_request)
             )
         st.session_state.recipe_result = accumulated
         st.session_state.ingredients_list = edited

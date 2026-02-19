@@ -69,7 +69,7 @@ def identify_ingredients(images):
     except Exception as e:
         yield f"エラー: {str(e)}"
 
-def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use_all=False):
+def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use_all=False, extra_request=""):
     base_prompt = f"""
     [使用可能な食材リスト]
     {ingredients_text}
@@ -91,6 +91,12 @@ def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use
         上記の食材の中から適度に選んで、レシピを提案してください。
         すべての食材を使い切る必要はありません。
         食材の数量・重量の目安が記載されている場合は、その量を参考にレシピの分量調整をしてください。
+        """
+    if extra_request and extra_request.strip():
+        base_prompt += f"""
+    [ユーザーからの追加要望]
+    {extra_request.strip()}
+    上記の追加要望を必ず考慮してレシピを提案してください。
         """
     base_prompt += f"""
     【重要なお願い】
