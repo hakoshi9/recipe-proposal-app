@@ -64,19 +64,25 @@ def identify_ingredients(images):
     except Exception as e:
         yield f"エラー: {str(e)}"
 
-def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False):
+def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use_all=False):
     base_prompt = f"""
-    【使用する食材リスト】
+    [使用可能な食材リスト]
     {ingredients_text}
     """
-    if is_choi_tashi:
+    if use_all:
         base_prompt += """
-        上記の食材リストに加え、一般家庭によくある食材（卵、牛乳、玉ねぎ、各種調味料など）から2〜3品を足して、
+        上記の食材リストに記載されている食材をすべて使い切ることを必ず守って、レシピを提案してください。
+        食材の使い残しが出ないようにしてください。
+        """
+    elif is_choi_tashi:
+        base_prompt += """
+        上記の食材リストに加え、一般家庭によくある食材（卵、牛乳、玉ねぎ、各種調味料など）から2ー3品を足して、
         より満足度の高いレシピ・献立にしてください。
         """
     else:
         base_prompt += """
-        上記の食材を使って、レシピを提案してください。
+        上記の食材の中から適度に選んで、レシピを提案してください。
+        すべての食材を使い切る必要はありません。
         """
     base_prompt += f"""
     【重要なお願い】
