@@ -257,51 +257,37 @@ if page == "作る":
     if st.session_state.ingredients_list:
         st.markdown("### 2. 食材リスト（編集可）")
         edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
-        if st.session_state.is_generating:
-            st.info("レシピを考案中です。しばらくお待ちください...")
-        else:
-            is_choi = st.checkbox("ちょい足しモード（画像に無い食材も２～３品使う）", value=False)
-            use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
-            easy_cooking = st.checkbox("お手軽調理モード（15分以内・3ステップ以内）", value=False)
 
-            with st.expander("追加の要望（任意）", expanded=False):
-                extra_request = st.text_area(
-                    "追加要望",
-                    value="",
-                    height=80,
-                    placeholder="例: 辛いものは避けて、和食でまとめてください、こどもが喘気なのでアレルギーに注意して...",
-                    label_visibility="collapsed"
-                )
+        is_choi = st.checkbox("ちょい足しモード（画像に無い食材も２～３品使う）", value=False)
+        use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
+        easy_cooking = st.checkbox("お手軽調理モード（15分以内・3ステップ以内）", value=False)
 
-            if st.button("3. レシピを生成", use_container_width=True):
-                st.session_state.is_generating = True
-                st.session_state.is_choi = is_choi
-                st.session_state.use_all = use_all
-                st.session_state.easy_cooking = easy_cooking
-                st.session_state.extra_request = extra_request
-                st.rerun()
-
-
-    # 生成フラグが立っている場合に実際の処理を実行
-    if st.session_state.get('is_generating') and st.session_state.ingredients_list:
-        edited = st.session_state.ingredients_list
-        is_choi = st.session_state.is_choi
-        use_all = st.session_state.use_all
-        easy_cooking = st.session_state.easy_cooking
-        extra_request = st.session_state.extra_request
-        with st.spinner("レシピを考案中..."):
-            accumulated = "".join(
-                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi, use_all=use_all, extra_request=extra_request, easy_cooking=easy_cooking)
+        with st.expander("追加の要望（任意）", expanded=False):
+            extra_request = st.text_area(
+                "追加要望",
+                value="",
+                height=80,
+                placeholder="例: 辛いものは避けて、和食でまとめてください、こどもが喘気なのでアレルギーに注意して...",
+                label_visibility="collapsed"
             )
-        st.session_state.recipe_result = accumulated
-        st.session_state.ingredients_list = edited
-        st.session_state.is_generating = False
-        save_cache(st.session_state.session_key, {
-            "recipe_result": accumulated,
-            "ingredients_list": edited
-        })
-        st.session_state.page = "確認"
-        st.rerun()
+
+        if st.button("3. レシピを生成", use_container_width=True):
+            with st.spinner("レシピを考案中..."):
+                accumulated = "".join(
+                    chunk for chunk in gemini_handler.generate_recipe(
+                        edited, mode, num_dishes, is_choi,
+                        use_all=use_all, extra_request=extra_request, easy_cooking=easy_cooking
+                    )
+                )
+            st.session_state.recipe_result = accumulated
+            st.session_state.ingredients_list = edited
+            save_cache(st.session_state.session_key, {
+                "recipe_result": accumulated,
+                "ingredients_list": edited
+            })
+            st.session_state.page = "確認"
+            st.rerun()
+
 
 elif page == "確認":
     # ページ表示時に最上部へスクロール
