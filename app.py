@@ -49,6 +49,8 @@ if 'use_all' not in st.session_state:
     st.session_state.use_all = False
 if 'extra_request' not in st.session_state:
     st.session_state.extra_request = ""
+if 'easy_cooking' not in st.session_state:
+    st.session_state.easy_cooking = False
 if 'session_key' not in st.session_state:
     # セッションごとに一意なキーを生成
     import uuid
@@ -260,6 +262,7 @@ if page == "作る":
         else:
             is_choi = st.checkbox("ちょい足しモード（画像に無い食材も２～３品使う）", value=False)
             use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
+            easy_cooking = st.checkbox("お手軽調理モード（15分以内・3ステップ以内）", value=False)
 
             with st.expander("追加の要望（任意）", expanded=False):
                 extra_request = st.text_area(
@@ -274,6 +277,7 @@ if page == "作る":
                 st.session_state.is_generating = True
                 st.session_state.is_choi = is_choi
                 st.session_state.use_all = use_all
+                st.session_state.easy_cooking = easy_cooking
                 st.session_state.extra_request = extra_request
                 st.rerun()
 
@@ -283,10 +287,11 @@ if page == "作る":
         edited = st.session_state.ingredients_list
         is_choi = st.session_state.is_choi
         use_all = st.session_state.use_all
+        easy_cooking = st.session_state.easy_cooking
         extra_request = st.session_state.extra_request
         with st.spinner("レシピを考案中..."):
             accumulated = "".join(
-                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi, use_all=use_all, extra_request=extra_request)
+                chunk for chunk in gemini_handler.generate_recipe(edited, mode, num_dishes, is_choi, use_all=use_all, extra_request=extra_request, easy_cooking=easy_cooking)
             )
         st.session_state.recipe_result = accumulated
         st.session_state.ingredients_list = edited

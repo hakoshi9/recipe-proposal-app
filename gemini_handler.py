@@ -69,7 +69,7 @@ def identify_ingredients(images):
     except Exception as e:
         yield f"エラー: {str(e)}"
 
-def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use_all=False, extra_request=""):
+def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use_all=False, extra_request="", easy_cooking=False):
     base_prompt = f"""
     [使用可能な食材リスト]
     {ingredients_text}
@@ -91,6 +91,13 @@ def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use
         上記の食材の中から適度に選んで、レシピを提案してください。
         すべての食材を使い切る必要はありません。
         食材の数量・重量の目安が記載されている場合は、その量を参考にレシピの分量調整をしてください。
+        """
+    if easy_cooking:
+        base_prompt += """
+        [お手軽調理モード]
+        調理工程をできる限り少なくしてください。「焼いて調味料をかける」「調味料を入れて煮る」「混ぜるだけ」
+        など、最小限の手順で作れるレシピを優先してください。
+        調理時間は15分以内を目安に、工程数は3ステップ以内にしてください。
         """
     if extra_request and extra_request.strip():
         base_prompt += f"""
