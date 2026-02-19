@@ -255,7 +255,7 @@ if page == "作る":
     if st.session_state.ingredients_list:
         st.markdown("### 2. 食材リスト（編集可）")
         edited = st.text_area("食材リスト", value=st.session_state.ingredients_list, height=100, label_visibility="collapsed")
-        is_choi = st.checkbox("ちょい足しモード（定番食材を追加）", value=False)
+        is_choi = st.checkbox("ちょい足しモード（画像に無い食材も２～３品使う）", value=False)
         use_all = st.checkbox("全食材を使うモード（すべての食材種類をレシピに含める）", value=False)
 
         with st.expander("追加の要望（任意）", expanded=False):
@@ -327,7 +327,23 @@ elif page == "確認":
                 start = matches[i].start()
                 end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
                 with tab:
-                    st.markdown(f"<div class='recipe-card'>{text[start:end]}</div>", unsafe_allow_html=True)
+                    section = text[start:end]
+                    # 栄養素概算セクションを切り出す
+                    nutrition_pattern = re.compile(r'###\s*栄養素概算')
+                    nutrition_match = nutrition_pattern.search(section)
+                    if nutrition_match:
+                        recipe_body = section[:nutrition_match.start()].strip()
+                        nutrition_body = section[nutrition_match.start():].strip()
+                    else:
+                        recipe_body = section.strip()
+                        nutrition_body = None
+
+                    st.markdown(f"<div class='recipe-card'>{recipe_body}</div>", unsafe_allow_html=True)
+
+                    if nutrition_body:
+                        with st.expander("栄養素概算を見る", expanded=False):
+                            st.markdown(nutrition_body)
+
 
             st.markdown("---")
             if st.button("このレシピを保存する", use_container_width=True):

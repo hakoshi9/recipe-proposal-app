@@ -102,6 +102,7 @@ def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use
     【重要なお願い】
     全く異なるアプローチの献立を3パターン（案A, 案B, 案C）提案してください。
     各案はそれぞれ【{num_dishes}品】構成にしてください。
+    栄養素の概算を考慮し、タンパク質・脂質・炭水化物・野菜のバランスが取れた献立にしてください。
 
     出力フォーマット:
     ---
@@ -117,6 +118,13 @@ def generate_recipe(ingredients_text, mode, num_dishes, is_choi_tashi=False, use
     **ポイント:** ...
 
     (品数が複数の場合は ### [料理名2] 以降も同様のフォーマットで)
+
+    ### 栄養素概算
+    - カロリー: 約〇〇kcal
+    - タンパク質: 約〇〇g
+    - 脂質: 約〇〇g
+    - 炭水化物: 約〇〇g
+    - 食物繊維: 約〇〇g
     ---
     ## 案B: ...
     ---
