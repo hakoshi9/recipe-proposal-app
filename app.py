@@ -293,10 +293,12 @@ elif page == "確認":
     # ページ表示時に最上部へスクロール
     components.html("""
     <script>
-    window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTo({
-        top: 0,
-        behavior: 'instant'
-    });
+    setTimeout(function() {
+        var elements = window.parent.document.querySelectorAll('[data-testid="stAppViewContainer"], section.main');
+        elements.forEach(function(el) {
+            el.scrollTo({top: 0, behavior: 'instant'});
+        });
+    }, 300);
     </script>
     """, height=0)
     st.markdown("<h1>できたレシピ</h1>", unsafe_allow_html=True)
