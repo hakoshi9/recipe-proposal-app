@@ -1,0 +1,24 @@
+name: Build Check
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (verification only, no push)
+        run: |
+          docker build \
+            --tag recipe-app:pr-${{ github.event.pull_request.number }} \
+            .
+
+      - name: Build verification passed
+        run: echo "### Build Check Passed :white_check_mark:" >> $GITHUB_STEP_SUMMARY

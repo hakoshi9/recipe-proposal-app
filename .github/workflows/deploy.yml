@@ -1,0 +1,97 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
+  SERVICE: ${{ secrets.CLOUD_RUN_SERVICE }}
+  IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/recipe-app
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Workload Identity Federation に必要
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Workload Identity Federation（キーレス認証）による GCP 認証
+      # 事前に GCP 側で以下のセットアップが必要です（初回のみ）:
+      #
+      #   1. Workload Identity プールとプロバイダーを作成:
+      #      gcloud iam workload-identity-pools create "github-pool" \
+      #        --project="${PROJECT_ID}" --location="global"
+      #      gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+      #        --project="${PROJECT_ID}" --location="global" \
+      #        --workload-identity-pool="github-pool" \
+      #        --issuer-uri="https://token.actions.githubusercontent.com" \
+      #        --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+      #        --attribute-condition="assertion.repository=='<GitHubの組織名>/<リポジトリ名>'"
+      #
+      #   2. 以下のロールを持つサービスアカウントを作成:
+      #      - roles/artifactregistry.writer  （Artifact Registry への書き込み）
+      #      - roles/run.developer            （Cloud Run のデプロイ）
+      #      - roles/iam.serviceAccountUser   （サービスアカウントの利用）
+      #
+      #   3. WIF プールからサービスアカウントへの権限借用を許可:
+      #      gcloud iam service-accounts add-iam-policy-binding SA_EMAIL \
+      #        --project="${PROJECT_ID}" \
+      #        --role="roles/iam.workloadIdentityUser" \
+      #        --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/<OWNER>/<REPO>"
+      #
+      #   4. GitHub Secrets に以下を登録:
+      #      - WIF_PROVIDER: projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+      #      - WIF_SERVICE_ACCOUNT: <サービスアカウント名>@<プロジェクトID>.iam.gserviceaccount.com
+      # -----------------------------------------------------------------------
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ env.IMAGE }}:${{ github.sha }}" \
+            --tag "${{ env.IMAGE }}:latest" \
+            .
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push "${{ env.IMAGE }}:${{ github.sha }}"
+          docker push "${{ env.IMAGE }}:latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ env.SERVICE }}" \
+            --image "${{ env.IMAGE }}:${{ github.sha }}" \
+            --region "${{ env.REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" \
+            --quiet
+
+      - name: Show deployed service URL
+        run: |
+          URL=$(gcloud run services describe "${{ env.SERVICE }}" \
+            --region "${{ env.REGION }}" \
+            --format "value(status.url)")
+          echo "Deployed to: $URL"
+          echo "### Deployment Successful :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
