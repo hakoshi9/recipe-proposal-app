@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getExifOrientation, applyExifOrientation } from '~/composables/useExifOrientation'
+
 const recipeStore = useRecipeStore()
 const router = useRouter()
 const toast = useToast()
@@ -6,6 +8,8 @@ const route = useRoute()
 
 // confirm.vue の「新しいレシピを生成する」ボタン経由で bypass=1 が付く
 const bypassCache = computed(() => route.query.bypass === '1')
+
+const MAX_IMAGES = 5
 
 const selectedGenre = ref('一般的な料理')
 const numDishes = ref(2)
@@ -19,6 +23,7 @@ const useAll = ref(false)
 const easyCooking = ref(false)
 const extraRequest = ref('')
 const fileInputRef = ref<HTMLInputElement>()
+const cameraInputRef = ref<HTMLInputElement>()
 
 const genres = [
   '一般的な料理',
@@ -28,24 +33,38 @@ const genres = [
   '離乳食(12-18ヶ月)',
 ]
 
+const isAtMaxImages = computed(() => uploadedFiles.value.length >= MAX_IMAGES)
+
+const addPreview = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    if (e.target?.result) {
+      imagePreviews.value.push(e.target.result as string)
+    }
+  }
+  reader.readAsDataURL(file)
+}
+
 const handleFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement
   if (!input.files) return
-  uploadedFiles.value = Array.from(input.files)
-  generatePreviews()
+  const remaining = MAX_IMAGES - uploadedFiles.value.length
+  const newFiles = Array.from(input.files).slice(0, remaining)
+  for (const file of newFiles) {
+    uploadedFiles.value.push(file)
+    addPreview(file)
+  }
 }
 
-const generatePreviews = () => {
-  imagePreviews.value = []
-  for (const file of uploadedFiles.value) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        imagePreviews.value.push(e.target.result as string)
-      }
-    }
-    reader.readAsDataURL(file)
-  }
+const handleCameraCapture = (e: Event) => {
+  const input = e.target as HTMLInputElement
+  if (!input.files || !input.files[0]) return
+  if (isAtMaxImages.value) return
+  const file = input.files[0]
+  uploadedFiles.value.push(file)
+  addPreview(file)
+  // 入力をリセットして同じ写真でも再撮影できるようにする
+  input.value = ''
 }
 
 const removeImage = (index: number) => {
@@ -53,7 +72,9 @@ const removeImage = (index: number) => {
   imagePreviews.value.splice(index, 1)
 }
 
-const resizeImageToBase64 = (file: File): Promise<string> => {
+const resizeImageToBase64 = async (file: File): Promise<string> => {
+  const orientation = await getExifOrientation(file)
+
   return new Promise((resolve) => {
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -70,9 +91,12 @@ const resizeImageToBase64 = (file: File): Promise<string> => {
           height = Math.round(height * ratio)
         }
 
-        canvas.width = width
-        canvas.height = height
+        // EXIF Orientation に応じてキャンバスサイズを調整
         const ctx = canvas.getContext('2d')!
+        const [outWidth, outHeight] = applyExifOrientation(ctx, orientation, width, height)
+        canvas.width = outWidth
+        canvas.height = outHeight
+
         ctx.drawImage(img, 0, 0, width, height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
         resolve(dataUrl.split(',')[1])
@@ -262,26 +286,58 @@ const generateRecipe = async () => {
 
       <!-- 写真から読み取り（入力補助） -->
       <div class="mt-4 p-3 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
-        <div class="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
-          <UIcon name="i-ph-camera" class="w-3 h-3" />
-          写真から読み取り
+        <div class="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 justify-between">
+          <div class="flex items-center gap-1">
+            <UIcon name="i-ph-camera" class="w-3 h-3" />
+            写真から読み取り
+          </div>
+          <span class="text-xs font-semibold" :class="isAtMaxImages ? 'text-red-400' : 'text-gray-400'">
+            {{ uploadedFiles.length }}/{{ MAX_IMAGES }}枚
+          </span>
         </div>
 
-        <div
-          class="border-2 border-dashed border-amber-200 rounded-xl p-4 text-center cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all"
-          @click="fileInputRef?.click()"
-        >
-          <UIcon name="i-ph-image-square" class="w-8 h-8 text-amber-300 mx-auto mb-1" />
-          <p class="text-xs font-medium text-slate-500">タップして写真を選択（複数可）</p>
-          <input
-            ref="fileInputRef"
-            type="file"
-            multiple
-            accept="image/*"
-            class="hidden"
-            @change="handleFileChange"
-          />
+        <div class="flex gap-2">
+          <!-- ギャラリー選択 -->
+          <div
+            class="flex-1 border-2 border-dashed border-amber-200 rounded-xl p-3 text-center cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all"
+            :class="isAtMaxImages ? 'opacity-40 pointer-events-none' : ''"
+            @click="fileInputRef?.click()"
+          >
+            <UIcon name="i-ph-image-square" class="w-6 h-6 text-amber-300 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-500">ギャラリー</p>
+            <input
+              ref="fileInputRef"
+              type="file"
+              multiple
+              accept="image/*"
+              class="hidden"
+              @change="handleFileChange"
+            />
+          </div>
+
+          <!-- カメラ直接起動 -->
+          <div
+            class="flex-1 border-2 border-dashed border-sky-200 rounded-xl p-3 text-center cursor-pointer hover:border-sky-400 hover:bg-sky-50/50 transition-all"
+            :class="isAtMaxImages ? 'opacity-40 pointer-events-none' : ''"
+            @click="cameraInputRef?.click()"
+          >
+            <UIcon name="i-ph-camera" class="w-6 h-6 text-sky-300 mx-auto mb-1" />
+            <p class="text-xs font-medium text-slate-500">カメラ撮影</p>
+            <input
+              ref="cameraInputRef"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden"
+              @change="handleCameraCapture"
+            />
+          </div>
         </div>
+
+        <!-- 上限メッセージ -->
+        <p v-if="isAtMaxImages" class="text-xs text-red-400 text-center font-medium">
+          上限（{{ MAX_IMAGES }}枚）に達しました。不要な写真を削除してから追加してください。
+        </p>
 
         <!-- プレビュー -->
         <div v-if="imagePreviews.length" class="grid grid-cols-4 gap-2">
