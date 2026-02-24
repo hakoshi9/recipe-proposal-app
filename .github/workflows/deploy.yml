@@ -18,16 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # Required for Workload Identity Federation
+      id-token: write  # Workload Identity Federation に必要
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------------------
-      # GCP Authentication via Workload Identity Federation (keyless auth)
-      # Prerequisites (one-time GCP setup):
-      #   1. Create a Workload Identity Pool and Provider:
+      # Workload Identity Federation（キーレス認証）による GCP 認証
+      # 事前に GCP 側で以下のセットアップが必要です（初回のみ）:
+      #
+      #   1. Workload Identity プールとプロバイダーを作成:
       #      gcloud iam workload-identity-pools create "github-pool" \
       #        --project="${PROJECT_ID}" --location="global"
       #      gcloud iam workload-identity-pools providers create-oidc "github-provider" \
@@ -35,19 +36,22 @@ jobs:
       #        --workload-identity-pool="github-pool" \
       #        --issuer-uri="https://token.actions.githubusercontent.com" \
       #        --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-      #        --attribute-condition="assertion.repository=='<YOUR_GITHUB_ORG>/<YOUR_REPO>'"
-      #   2. Create a Service Account with the following roles:
-      #      - roles/artifactregistry.writer
-      #      - roles/run.developer
-      #      - roles/iam.serviceAccountUser
-      #   3. Allow the WIF pool to impersonate the Service Account:
+      #        --attribute-condition="assertion.repository=='<GitHubの組織名>/<リポジトリ名>'"
+      #
+      #   2. 以下のロールを持つサービスアカウントを作成:
+      #      - roles/artifactregistry.writer  （Artifact Registry への書き込み）
+      #      - roles/run.developer            （Cloud Run のデプロイ）
+      #      - roles/iam.serviceAccountUser   （サービスアカウントの利用）
+      #
+      #   3. WIF プールからサービスアカウントへの権限借用を許可:
       #      gcloud iam service-accounts add-iam-policy-binding SA_EMAIL \
       #        --project="${PROJECT_ID}" \
       #        --role="roles/iam.workloadIdentityUser" \
       #        --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/<OWNER>/<REPO>"
-      #   4. Set GitHub Secrets:
+      #
+      #   4. GitHub Secrets に以下を登録:
       #      - WIF_PROVIDER: projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-      #      - WIF_SERVICE_ACCOUNT: <service-account>@<project-id>.iam.gserviceaccount.com
+      #      - WIF_SERVICE_ACCOUNT: <サービスアカウント名>@<プロジェクトID>.iam.gserviceaccount.com
       # -----------------------------------------------------------------------
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
