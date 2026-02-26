@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const recipeStore = useRecipeStore()
 const toast = useToast()
-const { renderMarkdown } = useMarkdown()
 
 const recipeText = computed(() => recipeStore.recipeResult)
 
@@ -19,13 +18,13 @@ const recipeSections = computed(() => {
     const start = match.index!
     const end = i + 1 < matches.length ? matches[i + 1].index! : recipeText.value.length
     const fullSection = recipeText.value.slice(start, end)
-    const titleLine = fullSection.split('\n')[0].replace(/#/g, '').trim()
 
     const nutritionMatch = fullSection.match(/###\s*栄養素概算[\s\S]*$/)
     const body = nutritionMatch
       ? fullSection.slice(0, nutritionMatch.index).trim()
       : fullSection.trim()
     const nutrition = nutritionMatch ? nutritionMatch[0] : ''
+    const titleLine = fullSection.split('\n')[0].replace(/#/g, '').trim()
 
     return { label: titleLine, content: body, nutrition }
   })
@@ -81,37 +80,14 @@ onMounted(() => {
       </div>
 
       <!-- レシピカード -->
-      <div
+      <RecipeCard
         v-for="(section, i) in recipeSections"
-        :key="i"
         v-show="recipeSections.length <= 1 || activeTab === i"
-        class="animate-pop-in"
-      >
-        <UCard class="shadow-lg shadow-amber-100/60 ring-1 ring-amber-100">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-ph-bowl-food" class="w-5 h-5 text-amber-500" />
-              <h2 class="font-bold text-sm">{{ section.label }}</h2>
-            </div>
-          </template>
-
-          <div class="prose prose-sm prose-slate max-w-none" v-html="renderMarkdown(section.content)" />
-        </UCard>
-
-        <!-- 栄養素概算 -->
-        <UCard
-          v-if="section.nutrition"
-          class="mt-3 shadow-sm ring-1 ring-emerald-100"
-        >
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-ph-chart-bar" class="w-4 h-4 text-emerald-500" />
-              <h3 class="font-bold text-xs text-emerald-700">栄養素概算</h3>
-            </div>
-          </template>
-          <div class="prose prose-sm prose-slate max-w-none" v-html="renderMarkdown(section.nutrition)" />
-        </UCard>
-      </div>
+        :key="i"
+        :title="section.label"
+        :content="section.content"
+        :nutrition="section.nutrition"
+      />
 
       <!-- 保存ボタン -->
       <UButton
