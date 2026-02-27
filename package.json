@@ -9,7 +9,11 @@
     "dev:mobile": "concurrently -n \"nuxt,ngrok\" -c \"cyan,yellow\" \"nuxt dev --host 0.0.0.0\" \"ngrok http 3000\"",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test": "pnpm test:unit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
@@ -22,9 +26,14 @@
     "vue-router": "latest"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.0",
+    "@playwright/test": "^1.58.2",
+    "@vue/test-utils": "^2.4.6",
     "concurrently": "^9.2.1",
+    "happy-dom": "^20.7.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   },
   "packageManager": "pnpm@9.15.0"
 }
