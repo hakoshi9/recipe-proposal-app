@@ -88,7 +88,14 @@ const generateRecipe = async () => {
       }),
     })
 
-    if (!response.ok) throw new Error('API error')
+    if (!response.ok) {
+      if (response.status === 429) {
+        toast.add({ title: 'リクエスト過多', description: 'しばらく経ってから再試行してください（約1分後）', color: 'warning' })
+      } else {
+        toast.add({ title: 'エラー', description: `レシピの生成に失敗しました (${response.status})`, color: 'error' })
+      }
+      return
+    }
 
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
@@ -120,8 +127,15 @@ const generateRecipe = async () => {
     recipeStore.setRecipeResult(result)
     recipeStore.setIngredients(ingredientsText.value)
     await router.push('/confirm')
-  } catch {
-    toast.add({ title: 'エラー', description: 'レシピの生成に失敗しました', color: 'error' })
+  } catch (err) {
+    const isNetworkError = err instanceof TypeError && err.message.includes('fetch')
+    toast.add({
+      title: 'エラー',
+      description: isNetworkError
+        ? 'ネットワークエラーが発生しました。接続を確認してください'
+        : 'レシピの生成に失敗しました。もう一度お試しください',
+      color: 'error',
+    })
   } finally {
     isGenerating.value = false
   }
@@ -172,8 +186,7 @@ const generateRecipe = async () => {
 
     <!-- レシピ生成ボタン -->
     <UButton
-      :loading="isGenerating"
-      :disabled="!ingredientsText.trim()"
+      :disabled="isGenerating || !ingredientsText.trim()"
       color="primary"
       size="lg"
       block
@@ -184,4 +197,7 @@ const generateRecipe = async () => {
       レシピを生成する
     </UButton>
   </UContainer>
+
+  <!-- レシピ生成中オーバーレイ -->
+  <GeneratingOverlay v-if="isGenerating" />
 </template>
