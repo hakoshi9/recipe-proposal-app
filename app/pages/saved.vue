@@ -2,9 +2,17 @@
 const recipeStore = useRecipeStore()
 const toast = useToast()
 const { renderMarkdown } = useMarkdown()
+const { shareToX, isSharing } = useShareToX()
 
 const expandedIndex = ref<number | null>(null)
 const deleteTargetIndex = ref<number | null>(null)
+const sharingIndex = ref<number | null>(null)
+
+const handleShareToX = async (recipe: typeof recipeStore.savedRecipes[number], index: number) => {
+  sharingIndex.value = index
+  await shareToX(recipe)
+  sharingIndex.value = null
+}
 
 // タイトル編集
 const editingIndex = ref<number | null>(null)
@@ -169,8 +177,32 @@ const confirmDelete = () => {
             />
           </div>
 
-          <!-- 削除ボタン -->
-          <div class="mt-4 pt-3 border-t border-slate-100">
+          <!-- アクションバー -->
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+            <!-- Xに投稿ボタン -->
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              :loading="sharingIndex === i"
+              :disabled="isSharing"
+              class="active-press"
+              @click="handleShareToX(recipe, i)"
+            >
+              <template #leading>
+                <svg
+                  v-if="sharingIndex !== i"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  class="w-3.5 h-3.5"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+                </svg>
+              </template>
+              Xに投稿
+            </UButton>
+
+            <!-- 削除ボタン -->
             <UButton
               color="error"
               variant="soft"
