@@ -84,7 +84,7 @@ jobs:
             --region "${{ env.REGION }}" \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" \
+            --set-env-vars "NUXT_GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" \
             --quiet
 
       - name: Show deployed service URL
