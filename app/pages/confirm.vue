@@ -5,6 +5,14 @@ const { isGenerationComplete } = useGeneratingOverlay()
 
 const recipeText = computed(() => recipeStore.recipeResult)
 
+const ingredientsSummary = computed(() => {
+  const raw = recipeStore.ingredientsList?.trim()
+  if (!raw) return ''
+  const items = raw.split('\n').map(s => s.trim()).filter(Boolean)
+  if (items.length <= 4) return items.join('、')
+  return items.slice(0, 4).join('、') + `… 他${items.length - 4}品`
+})
+
 const recipeSections = computed(() => {
   if (!recipeText.value) return []
 
@@ -33,8 +41,11 @@ const recipeSections = computed(() => {
 
 const activeTab = ref(0)
 
+const isSaved = ref(false)
+
 const saveRecipe = () => {
   recipeStore.saveRecipe()
+  isSaved.value = true
   toast.add({ title: '保存しました', icon: 'i-ph-check-circle', color: 'success' })
 }
 
@@ -45,13 +56,18 @@ onMounted(() => {
 </script>
 
 <template>
-  <UContainer class="py-6 space-y-6">
+  <UContainer class="py-6 space-y-5">
     <!-- ページヘッダー -->
     <div class="space-y-1">
       <h1 class="text-2xl font-bold flex items-center gap-2">
         <UIcon name="i-ph-clipboard-text" class="w-6 h-6 text-amber-500" />
         できたレシピ
       </h1>
+      <!-- 使用食材サマリ -->
+      <p v-if="ingredientsSummary" class="text-xs text-slate-400 flex items-center gap-1 pl-0.5">
+        <UIcon name="i-ph-carrot" class="w-3.5 h-3.5 flex-shrink-0" />
+        {{ ingredientsSummary }}
+      </p>
     </div>
 
     <!-- 空状態 -->
@@ -67,14 +83,14 @@ onMounted(() => {
 
     <template v-else>
       <!-- タブ切り替え -->
-      <div v-if="recipeSections.length > 1" class="flex p-1 bg-gray-100 rounded-xl">
+      <div v-if="recipeSections.length > 1" class="flex gap-2">
         <button
           v-for="(section, i) in recipeSections"
           :key="i"
-          class="flex-1 py-2 text-sm font-bold transition-all rounded-lg"
+          class="flex-1 py-2 px-3 text-sm font-bold rounded-xl border-2 transition-all duration-200"
           :class="activeTab === i
-            ? 'bg-white text-amber-500 shadow-sm'
-            : 'text-slate-400 hover:text-slate-600'"
+            ? 'border-amber-400 bg-amber-400 text-white shadow-md shadow-amber-200'
+            : 'border-amber-100 bg-white text-slate-400 hover:border-amber-200 hover:text-slate-600'"
           @click="activeTab = i"
         >
           {{ section.label.length > 12 ? section.label.slice(0, 12) + '…' : section.label }}
@@ -92,16 +108,19 @@ onMounted(() => {
       />
 
       <!-- 保存ボタン -->
-      <UButton
-        color="primary"
-        size="lg"
-        block
-        icon="i-ph-bookmark-simple"
-        class="font-extrabold text-base shadow-md shadow-amber-200 active-press"
-        @click="saveRecipe"
-      >
-        このレシピを保存する
-      </UButton>
+      <div class="pt-1">
+        <UButton
+          :color="isSaved ? 'success' : 'primary'"
+          size="lg"
+          block
+          :icon="isSaved ? 'i-ph-check-circle' : 'i-ph-bookmark-simple'"
+          class="font-extrabold text-base shadow-md active-press transition-all duration-300"
+          :class="isSaved ? 'shadow-green-200' : 'shadow-amber-200'"
+          @click="saveRecipe"
+        >
+          {{ isSaved ? '保存済み' : 'このレシピを保存する' }}
+        </UButton>
+      </div>
     </template>
   </UContainer>
 </template>
