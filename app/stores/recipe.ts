@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 
 export interface SavedRecipe {
   date: string
+  title?: string
   content: string
+  nutrition?: string
 }
 
 export const useRecipeStore = defineStore('recipe', {
@@ -21,17 +23,18 @@ export const useRecipeStore = defineStore('recipe', {
       this.recipeResult = text
     },
 
-    saveRecipe() {
-      if (!this.recipeResult) return
-
+    saveRecipe(title: string, content: string, nutrition?: string) {
       const now = new Date()
       const date = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
-      this.savedRecipes.unshift({
-        date,
-        content: this.recipeResult,
-      })
+      this.savedRecipes.unshift({ date, title, content, nutrition })
+      this.persistToLocalStorage()
+    },
 
+    updateRecipeTitle(index: number, title: string) {
+      const recipe = this.savedRecipes[index]
+      if (!recipe) return
+      recipe.title = title
       this.persistToLocalStorage()
     },
 
