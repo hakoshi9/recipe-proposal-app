@@ -6,6 +6,18 @@ const props = defineProps<{
 }>()
 
 const { renderMarkdown } = useMarkdown()
+
+// ### 見出しが複数ある（= 複数品）場合のみ「N品目」ラベルを付ける
+const processedContent = computed(() => {
+  const headingMatches = [...props.content.matchAll(/^###\s+.+$/gm)]
+  if (headingMatches.length <= 1) return props.content
+
+  let index = 0
+  return props.content.replace(/^(###\s+)(.+)$/gm, (_, hashes, name) => {
+    index++
+    return `${hashes}${index}品目：${name}`
+  })
+})
 </script>
 
 <template>
@@ -27,7 +39,7 @@ const { renderMarkdown } = useMarkdown()
           prose-ul:my-2 prose-li:my-0.5
           prose-ol:my-2
           prose-strong:text-slate-700"
-        v-html="renderMarkdown(content)"
+        v-html="renderMarkdown(processedContent)"
       />
     </UCard>
 

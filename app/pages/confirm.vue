@@ -9,8 +9,7 @@ const ingredientsSummary = computed(() => {
   const raw = recipeStore.ingredientsList?.trim()
   if (!raw) return ''
   const items = raw.split('\n').map(s => s.trim()).filter(Boolean)
-  if (items.length <= 4) return items.join('、')
-  return items.slice(0, 4).join('、') + `… 他${items.length - 4}品`
+  return items.join('、')
 })
 
 const recipeSections = computed(() => {
@@ -34,14 +33,99 @@ const recipeSections = computed(() => {
       : fullSection.trim()
     const nutrition = nutritionMatch ? nutritionMatch[0] : ''
     const titleLine = fullSection.split('\n')[0].replace(/#/g, '').trim()
+    const bodyWithoutTitle = body.replace(/^##[^\n]*\n?/, '').trim()
 
-    return { label: titleLine, content: body, nutrition }
+    return { label: titleLine, content: bodyWithoutTitle, nutrition }
   })
 })
 
 const activeTab = ref(0)
 
 const isSaved = ref(false)
+
+const isDev = import.meta.dev
+
+const loadDummyData = () => {
+  recipeStore.setIngredients('鶏むね肉\nキャベツ\nにんじん\n玉ねぎ\nじゃがいも\nにんにく')
+  recipeStore.setRecipeResult(`## 案A: 和食定食セット
+調理時間: 約25分
+
+### 鶏むね肉の照り焼き
+**材料と分量:**
+- 鶏むね肉: 300g
+- 醤油: 大さじ2
+- みりん: 大さじ2
+- 砂糖: 大さじ1
+- サラダ油: 少々
+
+**手順:**
+1. 鶏むね肉を一口大に切り、フォークで数か所刺す
+2. 醤油・みりん・砂糖を合わせてタレを作る
+3. フライパンに油を熱し、鶏肉を中火で両面こんがり焼く
+4. タレを加えて絡めながら煮詰めて完成
+
+**ポイント:** 蓋をして蒸し焼きにすると中まで火が通りやすい
+
+### 玉ねぎとにんじんの味噌汁
+**材料と分量:**
+- 玉ねぎ: 1/2個
+- にんじん: 1/3本
+- 味噌: 大さじ1.5
+- だし汁: 400ml
+
+**手順:**
+1. 玉ねぎ・にんじんを薄切りにする
+2. だし汁で野菜をやわらかくなるまで煮る
+3. 火を止めて味噌を溶かして完成
+
+**ポイント:** 沸騰後は弱火でじっくり煮ると甘みが出る
+
+### 栄養素概算
+- カロリー: 約520kcal
+- タンパク質: 35g
+- 脂質: 8g
+- 炭水化物: 72g
+
+## 案B: 洋風ワンプレート
+調理時間: 約20分
+
+### 鶏野菜のソテー
+**材料と分量:**
+- 鶏むね肉: 200g
+- キャベツ: 1/4個
+- にんじん: 1本
+- にんにく: 1片
+- オリーブオイル: 大さじ1
+- 塩コショウ: 適量
+
+**手順:**
+1. 鶏肉・野菜をひと口大に切る
+2. にんにくを炒めて香りを出す
+3. 鶏肉を加えて焼き色をつけてから野菜を炒める
+4. 塩コショウで味を整えて完成
+
+**ポイント:** 強火で手早く炒めると野菜の食感が残る
+
+### キャベツのコールスロー
+**材料と分量:**
+- キャベツ: 1/8個
+- マヨネーズ: 大さじ2
+- 酢: 小さじ1
+- 塩コショウ: 少々
+
+**手順:**
+1. キャベツを千切りにして塩もみする
+2. 水気を絞り、マヨネーズ・酢・塩コショウで和える
+
+**ポイント:** 食べる直前に和えると水っぽくならない
+
+### 栄養素概算
+- カロリー: 約420kcal
+- タンパク質: 32g
+- 脂質: 14g
+- 炭水化物: 38g
+`)
+}
 
 const saveRecipe = () => {
   recipeStore.saveRecipe()
@@ -75,9 +159,15 @@ onMounted(() => {
       <div class="text-center py-12">
         <UIcon name="i-ph-cooking-pot" class="w-16 h-16 text-amber-200 mx-auto mb-4" />
         <p class="text-slate-500 font-medium mb-4">まだレシピがありません</p>
-        <UButton to="/" color="primary" variant="soft" icon="i-ph-arrow-left">
-          食材を解析する
-        </UButton>
+        <div class="flex flex-col items-center gap-3">
+          <UButton to="/" color="primary" variant="soft" icon="i-ph-arrow-left">
+            食材を解析する
+          </UButton>
+          <!-- 開発環境のみ表示 -->
+          <UButton v-if="isDev" color="neutral" variant="outline" size="sm" icon="i-ph-flask" @click="loadDummyData">
+            ダミーデータを読み込む
+          </UButton>
+        </div>
       </div>
     </UCard>
 
