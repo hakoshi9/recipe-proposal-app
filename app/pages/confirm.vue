@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const recipeStore = useRecipeStore()
 const toast = useToast()
+const { isGenerationComplete } = useGeneratingOverlay()
 
 const recipeText = computed(() => recipeStore.recipeResult)
 
@@ -39,6 +40,7 @@ const saveRecipe = () => {
 
 onMounted(() => {
   window.scrollTo({ top: 0, behavior: 'instant' })
+  isGenerationComplete.value = false
 })
 </script>
 
@@ -99,19 +101,6 @@ onMounted(() => {
         @click="saveRecipe"
       >
         このレシピを保存する
-      </UButton>
-
-      <!-- 再生成ボタン -->
-      <UButton
-        to="/?bypass=1"
-        color="neutral"
-        variant="soft"
-        size="lg"
-        block
-        icon="i-ph-arrow-counter-clockwise"
-        class="font-bold text-base"
-      >
-        新しいレシピを生成する
       </UButton>
     </template>
   </UContainer>

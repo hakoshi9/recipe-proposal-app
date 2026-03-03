@@ -6,6 +6,7 @@ const navItems = [
 ]
 
 const { initializeFromStorage } = useLocalStorage()
+const { isGenerating, isGenerationComplete } = useGeneratingOverlay()
 
 onMounted(() => {
   initializeFromStorage()
@@ -34,6 +35,9 @@ onMounted(() => {
     <main class="container mx-auto px-4 pb-20 sm:pb-8 pt-4">
       <slot />
     </main>
+
+    <!-- レシピ生成中オーバーレイ（ページ遷移をまたいで表示） -->
+    <GeneratingOverlay v-if="isGenerating || isGenerationComplete" :completed="isGenerationComplete" />
 
     <!-- モバイルボトムナビゲーション -->
     <nav class="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white border-t border-amber-200 pb-safe shadow-[0_-2px_12px_0_rgba(245,158,11,0.10)]">
