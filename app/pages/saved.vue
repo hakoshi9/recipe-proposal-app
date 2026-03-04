@@ -155,6 +155,26 @@ const confirmDelete = () => {
 
         <!-- 展開時 -->
         <div v-if="expandedIndex === i" class="animate-pop-in" @click.stop>
+          <!-- 右上シェアボタン -->
+          <div class="flex justify-end mb-3">
+            <button
+              class="group inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full
+                     bg-amber-400 hover:bg-amber-500
+                     text-white text-xs font-bold tracking-wide
+                     shadow shadow-amber-200 hover:shadow-md hover:shadow-amber-300
+                     active:scale-95 transition-all duration-150 disabled:opacity-40"
+              :disabled="isSharing"
+              @click="handleShareToX(recipe, i)"
+            >
+              <UIcon
+                :name="sharingIndex === i ? 'i-ph-circle-notch' : 'i-ph-share-network'"
+                class="w-3.5 h-3.5 flex-shrink-0"
+                :class="{ 'animate-spin': sharingIndex === i, 'group-hover:scale-110 transition-transform duration-150': sharingIndex !== i }"
+              />
+              <span>{{ sharingIndex === i ? '準備中...' : 'シェアする' }}</span>
+            </button>
+          </div>
+
           <!-- レシピ本文 -->
           <div
             class="prose prose-sm prose-slate max-w-none
@@ -178,38 +198,10 @@ const confirmDelete = () => {
           </div>
 
           <!-- アクションバー -->
-          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-3">
-            <!-- シェアボタン -->
-            <button
-              class="group inline-flex items-center gap-2 px-4 py-2 rounded-full
-                     bg-slate-900 hover:bg-black
-                     text-white text-sm font-bold tracking-wide
-                     shadow-md shadow-slate-200
-                     hover:shadow-lg hover:shadow-slate-300
-                     active:scale-95 transition-all duration-150 disabled:opacity-40"
-              :disabled="isSharing"
-              @click="handleShareToX(recipe, i)"
-            >
-              <svg
-                v-if="sharingIndex !== i"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-3.5 h-3.5 flex-shrink-0 group-hover:scale-110 transition-transform duration-150"
-              >
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
-              </svg>
-              <UIcon
-                v-else
-                name="i-ph-circle-notch"
-                class="w-3.5 h-3.5 flex-shrink-0 animate-spin"
-              />
-              <span>{{ sharingIndex === i ? '準備中...' : 'シェアする' }}</span>
-            </button>
-
-            <!-- 削除ボタン -->
+          <div class="mt-4 pt-3 border-t border-slate-100">
             <UButton
               color="error"
-              variant="ghost"
+              variant="soft"
               size="sm"
               icon="i-ph-trash"
               class="active-press"
