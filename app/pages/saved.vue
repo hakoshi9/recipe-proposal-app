@@ -2,9 +2,17 @@
 const recipeStore = useRecipeStore()
 const toast = useToast()
 const { renderMarkdown } = useMarkdown()
+const { shareToX, isSharing } = useShareToX()
 
 const expandedIndex = ref<number | null>(null)
 const deleteTargetIndex = ref<number | null>(null)
+const sharingIndex = ref<number | null>(null)
+
+const handleShareToX = async (recipe: typeof recipeStore.savedRecipes[number], index: number) => {
+  sharingIndex.value = index
+  await shareToX(recipe)
+  sharingIndex.value = null
+}
 
 // タイトル編集
 const editingIndex = ref<number | null>(null)
@@ -147,6 +155,26 @@ const confirmDelete = () => {
 
         <!-- 展開時 -->
         <div v-if="expandedIndex === i" class="animate-pop-in" @click.stop>
+          <!-- 右上シェアボタン -->
+          <div class="flex justify-end mb-3">
+            <button
+              class="group inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full
+                     bg-amber-400 hover:bg-amber-500
+                     text-white text-xs font-bold tracking-wide
+                     shadow shadow-amber-200 hover:shadow-md hover:shadow-amber-300
+                     active:scale-95 transition-all duration-150 disabled:opacity-40"
+              :disabled="isSharing"
+              @click="handleShareToX(recipe, i)"
+            >
+              <UIcon
+                :name="sharingIndex === i ? 'i-ph-circle-notch' : 'i-ph-share-network'"
+                class="w-3.5 h-3.5 flex-shrink-0"
+                :class="{ 'animate-spin': sharingIndex === i, 'group-hover:scale-110 transition-transform duration-150': sharingIndex !== i }"
+              />
+              <span>{{ sharingIndex === i ? '準備中...' : 'シェアする' }}</span>
+            </button>
+          </div>
+
           <!-- レシピ本文 -->
           <div
             class="prose prose-sm prose-slate max-w-none
@@ -169,7 +197,7 @@ const confirmDelete = () => {
             />
           </div>
 
-          <!-- 削除ボタン -->
+          <!-- アクションバー -->
           <div class="mt-4 pt-3 border-t border-slate-100">
             <UButton
               color="error"
