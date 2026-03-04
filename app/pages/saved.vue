@@ -146,10 +146,26 @@ const confirmDelete = () => {
                 <p class="text-xs text-slate-400 mt-0.5">{{ recipe.date }}</p>
               </div>
             </div>
-            <UIcon
-              :name="expandedIndex === i ? 'i-ph-caret-up' : 'i-ph-caret-down'"
-              class="w-4 h-4 text-slate-400 flex-shrink-0 mt-1 transition-transform duration-200"
-            />
+            <div class="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+              <!-- シェアボタン -->
+              <button
+                class="w-7 h-7 flex items-center justify-center rounded-full text-slate-300 hover:text-amber-500 hover:bg-amber-50 active:scale-95 transition-all duration-150 disabled:opacity-40"
+                :disabled="isSharing"
+                aria-label="シェア"
+                @click.stop="handleShareToX(recipe, i)"
+              >
+                <UIcon
+                  :name="sharingIndex === i ? 'i-ph-circle-notch' : 'i-ph-share-network'"
+                  class="w-4 h-4"
+                  :class="{ 'animate-spin text-amber-500': sharingIndex === i }"
+                />
+              </button>
+              <!-- 展開カレット -->
+              <UIcon
+                :name="expandedIndex === i ? 'i-ph-caret-up' : 'i-ph-caret-down'"
+                class="w-4 h-4 text-slate-400 transition-transform duration-200"
+              />
+            </div>
           </div>
         </template>
 
@@ -178,31 +194,7 @@ const confirmDelete = () => {
           </div>
 
           <!-- アクションバー -->
-          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <!-- Xに投稿ボタン -->
-            <UButton
-              color="neutral"
-              variant="soft"
-              size="sm"
-              :loading="sharingIndex === i"
-              :disabled="isSharing"
-              class="active-press"
-              @click="handleShareToX(recipe, i)"
-            >
-              <template #leading>
-                <svg
-                  v-if="sharingIndex !== i"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  class="w-3.5 h-3.5"
-                >
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
-                </svg>
-              </template>
-              Xに投稿
-            </UButton>
-
-            <!-- 削除ボタン -->
+          <div class="mt-4 pt-3 border-t border-slate-100">
             <UButton
               color="error"
               variant="soft"
