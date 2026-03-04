@@ -81,7 +81,7 @@ async function generateRecipeImage(recipe: SavedRecipe): Promise<Blob> {
   if (!ctx) throw new Error('Canvas not supported')
 
   const title = getDisplayTitle(recipe)
-  const contentText = stripMarkdown(recipe.content).slice(0, 520)
+  const contentText = stripMarkdown(recipe.content)
 
   // テキスト計測（スケール前）
   const TITLE_FONT = `800 24px ${FONT}`
@@ -95,7 +95,7 @@ async function generateRecipeImage(recipe: SavedRecipe): Promise<Blob> {
   ctx.font = CONTENT_FONT
   const allContentLines = wrapText(ctx, contentText, CARD_W - PAD * 2)
   const CONTENT_LINE_H = 22
-  const MAX_CONTENT_LINES = 18
+  const MAX_CONTENT_LINES = 50
   const shownLines = allContentLines.slice(0, MAX_CONTENT_LINES)
   const contentBlockH = shownLines.length * CONTENT_LINE_H
 
