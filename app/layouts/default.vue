@@ -31,6 +31,9 @@ onMounted(() => {
       </div>
     </header>
 
+    <!-- 広告バナー（ヘッダー直下） -->
+    <AdBanner slot-id="global-top" />
+
     <!-- メインコンテンツ -->
     <main class="container mx-auto px-4 pb-20 sm:pb-8 pt-4">
       <slot />

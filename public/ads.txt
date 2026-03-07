@@ -1,0 +1,2 @@
+# Google AdSense の ads.txt
+google.com, pub-1964305942463116, DIRECT, f08c47fec0942fa0

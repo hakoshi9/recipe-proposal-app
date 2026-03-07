@@ -28,6 +28,11 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
+    public: {
+      featureAdsEnabled: true,
+      // AdSense Publisher ID: 本番では NUXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-XXXXXXXXXXXXXXXX で設定
+      adsenseClientId: process.env.NUXT_PUBLIC_ADSENSE_CLIENT_ID || '',
+    },
   },
 
   devtools: { enabled: true },
