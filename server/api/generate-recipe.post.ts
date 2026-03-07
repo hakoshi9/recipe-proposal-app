@@ -174,9 +174,11 @@ ${body.extraRequest.trim()}
           controller.close()
         } catch (error: any) {
           if (error?.status === 429) {
-            controller.enqueue(encoder.encode('data: APIの利用制限に達しました。1分ほど時間を空けてから再度お試しください。\n\n'))
+            const errData = JSON.stringify({ __error: true, type: 'rate_limit', message: 'APIの利用制限に達しました。しばらく待ってから再試行します' })
+            controller.enqueue(encoder.encode(`event: error\ndata: ${errData}\n\n`))
           } else {
-            controller.enqueue(encoder.encode(`data: エラーが発生しました: ${error?.message || '不明なエラー'}\n\n`))
+            const errData = JSON.stringify({ __error: true, type: 'server_error', message: error?.message || '不明なエラー' })
+            controller.enqueue(encoder.encode(`event: error\ndata: ${errData}\n\n`))
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
           controller.close()
@@ -187,13 +189,7 @@ ${body.extraRequest.trim()}
     return sendStream(event, stream)
   } catch (error: any) {
     if (error?.status === 429) {
-      return sendStream(event, new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode('data: APIの利用制限に達しました。1分ほど時間を空けてから再度お試しください。\n\n'))
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-          controller.close()
-        },
-      }))
+      throw createError({ statusCode: 429, statusMessage: 'Rate limit exceeded' })
     }
     throw createError({ statusCode: 500, statusMessage: error?.message || 'Internal Server Error' })
   }

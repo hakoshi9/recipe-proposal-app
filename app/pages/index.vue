@@ -3,11 +3,13 @@ const recipeStore = useRecipeStore()
 const router = useRouter()
 const toast = useToast()
 const route = useRoute()
+const { remaining, isLimitReached, consume } = useGenerationLimit()
 
 // confirm.vue の「新しいレシピを生成する」ボタン経由で bypass=1 が付く
 const bypassCache = computed(() => route.query.bypass === '1')
 
 const { isGenerating, isGenerationComplete } = useGeneratingOverlay()
+const { isRetrying, retryCountdown, retryAttempt, fetchStream, cancel } = useStreamWithRetry()
 
 const ingredientsText = ref('')
 const isIdentifying = ref(false)
@@ -25,44 +27,29 @@ const identifyIngredients = async (base64Images: string[]) => {
   let identifiedText = ''
 
   try {
-    const response = await fetch('/api/identify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ images: base64Images }),
-    })
+    await fetchStream(
+      '/api/identify',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: base64Images }),
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 1000,
+        onChunk: (chunk: string) => { identifiedText += chunk },
+        onError: (_message: string) => {
+          toast.add({ title: 'エラー', description: '食材の読み取りに失敗しました', color: 'error' })
+        },
+      },
+    )
 
-    if (!response.ok) throw new Error('API error')
-
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-    if (!reader) throw new Error('No reader')
-
-    let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-          try {
-            identifiedText += JSON.parse(data)
-          } catch {
-            identifiedText += data
-          }
-        }
-      }
+    if (identifiedText) {
+      ingredientsText.value = existingText
+        ? existingText + '\n' + identifiedText
+        : identifiedText
+      recipeStore.setIngredients(ingredientsText.value)
     }
-
-    ingredientsText.value = existingText
-      ? existingText + '\n' + identifiedText
-      : identifiedText
-    recipeStore.setIngredients(ingredientsText.value)
   } catch {
     toast.add({ title: 'エラー', description: '食材の読み取りに失敗しました', color: 'error' })
   } finally {
@@ -72,59 +59,49 @@ const identifyIngredients = async (base64Images: string[]) => {
 
 const generateRecipe = async () => {
   if (!ingredientsText.value) return
+
+  // 回数制限チェック
+  if (!consume()) {
+    toast.add({ title: '本日の上限に達しました', description: `レシピ生成は1日${5}回までです。明日またお試しください。`, color: 'warning' })
+    return
+  }
+
   isGenerating.value = true
+  let result = ''
 
   try {
-    const response = await fetch('/api/generate-recipe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ingredients: ingredientsText.value,
-        mode: selectedGenre.value,
-        numDishes: numDishes.value,
-        isChoi: isChoi.value,
-        useAll: useAll.value,
-        extraRequest: extraRequest.value,
-        easyCooking: easyCooking.value,
-        bypassCache: bypassCache.value,
-      }),
-    })
+    await fetchStream(
+      '/api/generate-recipe',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ingredients: ingredientsText.value,
+          mode: selectedGenre.value,
+          numDishes: numDishes.value,
+          isChoi: isChoi.value,
+          useAll: useAll.value,
+          extraRequest: extraRequest.value,
+          easyCooking: easyCooking.value,
+          bypassCache: bypassCache.value,
+        }),
+      },
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        onChunk: (chunk: string) => { result += chunk },
+        onRetry: (_attempt: number, _delayMs: number, _reason: string) => {
+          // リトライ中は isRetrying/retryCountdown のリアクティブ値でバナーを表示
+        },
+        onError: (message: string) => {
+          isGenerating.value = false
+          isGenerationComplete.value = false
+          toast.add({ title: 'エラー', description: message, color: 'error' })
+        },
+      },
+    )
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        toast.add({ title: 'リクエスト過多', description: 'しばらく経ってから再試行してください（約1分後）', color: 'warning' })
-      } else {
-        toast.add({ title: 'エラー', description: `レシピの生成に失敗しました (${response.status})`, color: 'error' })
-      }
-      return
-    }
-
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-    if (!reader) throw new Error('No reader')
-
-    let result = ''
-    let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-          try {
-            result += JSON.parse(data)
-          } catch {
-            result += data
-          }
-        }
-      }
-    }
+    if (!result) return
 
     recipeStore.setRecipeResult(result)
     recipeStore.setIngredients(ingredientsText.value)
@@ -137,16 +114,26 @@ const generateRecipe = async () => {
   } catch (err) {
     isGenerating.value = false
     isGenerationComplete.value = false
-    const isNetworkError = err instanceof TypeError && err.message.includes('fetch')
-    toast.add({
-      title: 'エラー',
-      description: isNetworkError
-        ? 'ネットワークエラーが発生しました。接続を確認してください'
-        : 'レシピの生成に失敗しました。もう一度お試しください',
-      color: 'error',
-    })
+    const isNetworkError = err instanceof TypeError
+    if ((err as any)?.status === 429) {
+      toast.add({
+        title: 'リクエスト過多',
+        description: 'リトライ上限に達しました。しばらく経ってから再試行してください',
+        color: 'warning',
+      })
+    } else {
+      toast.add({
+        title: 'エラー',
+        description: isNetworkError
+          ? 'ネットワークエラーが発生しました。接続を確認してください'
+          : 'レシピの生成に失敗しました。もう一度お試しください',
+        color: 'error',
+      })
+    }
   }
 }
+
+onUnmounted(() => cancel())
 </script>
 
 <template>
@@ -191,9 +178,33 @@ const generateRecipe = async () => {
       </div>
     </UCard>
 
+    <!-- 残り回数表示 -->
+    <div class="flex items-center justify-between text-sm">
+      <span v-if="isLimitReached" class="text-red-500 font-medium flex items-center gap-1">
+        <UIcon name="i-ph-warning-circle" class="w-4 h-4" />
+        本日の生成上限に達しました
+      </span>
+      <span v-else class="text-slate-400">
+        本日の残り生成回数:
+        <span :class="remaining <= 1 ? 'text-orange-500 font-bold' : 'text-amber-500 font-bold'">{{ remaining }}回</span>
+      </span>
+    </div>
+
+    <!-- リトライ待機バナー -->
+    <div
+      v-if="isRetrying"
+      class="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700"
+    >
+      <UIcon name="i-ph-arrow-clockwise" class="w-4 h-4 shrink-0 animate-spin" />
+      <span>
+        レート制限中 — <span class="font-bold">{{ retryCountdown }}秒</span>後に再試行します
+        <span class="text-amber-500 ml-1">({{ retryAttempt }}回目)</span>
+      </span>
+    </div>
+
     <!-- レシピ生成ボタン -->
     <UButton
-      :disabled="isGenerating || !ingredientsText.trim()"
+      :disabled="isGenerating || !ingredientsText.trim() || isLimitReached"
       color="primary"
       size="lg"
       block
@@ -201,7 +212,7 @@ const generateRecipe = async () => {
       class="font-extrabold text-base shadow-md shadow-amber-200 active-press"
       @click="showConfirmDialog = true"
     >
-      レシピを考えて！
+      {{ isLimitReached ? '本日の上限に達しました' : 'レシピを考えて！' }}
     </UButton>
 
     <!-- 生成確認ダイアログ -->
