@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const config = useRuntimeConfig()
+
 useHead({
   link: [
     { rel: 'icon', href: '/favicon.ico' },
@@ -10,6 +12,12 @@ useHead({
     lang: 'ja',
   },
 })
+
+if (config.public.adsenseClientId) {
+  useHead({
+    meta: [{ name: 'google-adsense-account', content: config.public.adsenseClientId as string }],
+  })
+}
 
 const colorMode = useColorMode()
 colorMode.preference = 'light'

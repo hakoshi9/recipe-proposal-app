@@ -2,6 +2,7 @@
 const recipeStore = useRecipeStore()
 const toast = useToast()
 const { isGenerationComplete } = useGeneratingOverlay()
+const { countdown, isWatchingFor, isUnlocked, watchAd, reset } = useRewardedAd()
 
 const recipeText = computed(() => recipeStore.recipeResult)
 
@@ -44,6 +45,8 @@ const activeTab = ref(0)
 // 各案ごとの保存済みフラグ
 const savedTabs = ref<Set<number>>(new Set())
 
+const isLocked = (i: number) => i >= 1 && !isUnlocked(i)
+
 const saveCurrentSection = () => {
   const section = recipeSections.value[activeTab.value]
   if (!section) return
@@ -54,9 +57,15 @@ const saveCurrentSection = () => {
 
 const isSaved = computed(() => savedTabs.value.has(activeTab.value))
 
+const handleWatchAd = async (index: number) => {
+  await watchAd(index)
+  toast.add({ title: '広告視聴完了！', description: `案${index + 1}が解放されました`, icon: 'i-ph-lock-open', color: 'success' })
+}
+
 onMounted(() => {
   window.scrollTo({ top: 0, behavior: 'instant' })
   isGenerationComplete.value = false
+  reset()
 })
 </script>
 
@@ -93,7 +102,10 @@ onMounted(() => {
             : 'text-slate-400 hover:text-slate-600'"
           @click="activeTab = i"
         >
-          {{ section.label.length > 12 ? section.label.slice(0, 12) + '…' : section.label }}
+          <span class="flex items-center justify-center gap-1">
+            <UIcon v-if="isLocked(i)" name="i-ph-lock" class="w-3.5 h-3.5 text-slate-400" />
+            {{ section.label.length > 12 ? section.label.slice(0, 12) + '…' : section.label }}
+          </span>
           <!-- 保存済みインジケーター -->
           <span
             v-if="savedTabs.has(i)"
@@ -102,18 +114,69 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- レシピカード -->
+      <!-- レシピカード（案1のみ） -->
       <RecipeCard
-        v-for="(section, i) in recipeSections"
-        v-show="recipeSections.length <= 1 || activeTab === i"
-        :key="i"
-        :title="section.label"
-        :content="section.content"
-        :nutrition="section.nutrition"
+        v-show="recipeSections.length <= 1 || activeTab === 0"
+        :title="recipeSections[0]?.label ?? ''"
+        :content="recipeSections[0]?.content ?? ''"
+        :nutrition="recipeSections[0]?.nutrition ?? ''"
       />
 
-      <!-- 保存ボタン -->
+      <!-- 案2/3: ロック or 解放後表示 -->
+      <template v-for="(section, i) in recipeSections" :key="i">
+        <template v-if="i >= 1">
+          <!-- ロック状態 -->
+          <div
+            v-if="isLocked(i) && activeTab === i"
+            class="animate-pop-in"
+          >
+            <UCard class="shadow-lg shadow-amber-100/60 ring-1 ring-amber-100 overflow-hidden">
+              <!-- タイトルはぼかしなしで表示 -->
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-ph-bowl-food" class="w-5 h-5 text-amber-500" />
+                  <h2 class="font-bold text-sm">{{ section.label }}</h2>
+                </div>
+              </template>
+
+              <!-- 広告解放ボタン（上寄せ） -->
+              <div class="flex flex-col items-center gap-3 py-3">
+                <UButton
+                  color="primary"
+                  icon="i-ph-play-circle"
+                  size="md"
+                  :loading="isWatchingFor(i)"
+                  :disabled="isWatchingFor(i)"
+                  @click="handleWatchAd(i)"
+                >
+                  {{ isWatchingFor(i) ? `広告を視聴中... (${countdown}秒)` : '広告を見て解放する' }}
+                </UButton>
+                <p class="text-slate-400 text-xs text-center">
+                  <UIcon name="i-ph-lock" class="w-3 h-3 inline mr-0.5" />
+                  案{{ i + 1 }}の内容は広告視聴後に表示されます
+                </p>
+              </div>
+
+              <!-- 本文のみぼかし -->
+              <div class="blur-sm pointer-events-none select-none opacity-40 -mx-4 -mb-4 px-4 pb-4 border-t border-amber-50 pt-3">
+                <div class="prose prose-sm prose-slate max-w-none" v-html="'<p>' + section.content.slice(0, 200) + '…</p>'" />
+              </div>
+            </UCard>
+          </div>
+
+          <!-- 解放済み -->
+          <RecipeCard
+            v-if="!isLocked(i) && activeTab === i"
+            :title="section.label"
+            :content="section.content"
+            :nutrition="section.nutrition"
+          />
+        </template>
+      </template>
+
+      <!-- 保存ボタン（ロック中は非表示） -->
       <UButton
+        v-if="!isLocked(activeTab)"
         :color="isSaved ? 'success' : 'primary'"
         size="lg"
         block
